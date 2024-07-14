@@ -35,12 +35,13 @@ class TransformerModel(nn.Module):
         self,
         g: Tensor,
         x: Tensor,
-        TF: Tensor,
+        TF: Optional(Tensor)=None,
         ) -> Tensor:
 
         g = self.emg_g(g)       # (batch, seq_len, embsize)
         x = self.emg_g(x)       # (batch, seq_len, embsize)
-        TF = self.emb_TF(TF)    # (batch, seq_len, seq_len, emb_size)
+        if TF:
+            TF = self.emb_TF(TF)    # (batch, seq_len, seq_len, emb_size)
         
         self.cur_gene_token_embs = x
         
@@ -51,10 +52,11 @@ class TransformerModel(nn.Module):
 
     def forward(
         self,
-        src: Tensor,
-        values: Tensor,
+        g: Tensor,
+        x: Tensor,
+        TF: Optional(Tensor)=None,
         ):
-        transformer_output = self._encode(src, values)
+        transformer_output = self._encode(g, x, TF)
 
         output = {}
         
