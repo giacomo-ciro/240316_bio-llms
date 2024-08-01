@@ -1,0 +1,35 @@
+HYPOXIA_9K
+AnnData object with n_obs × n_vars = 9234 × 19046
+    obs: 'nCount_RNA', 'nFeature_RNA', 'SampleTags', 'percent.mt', 'HypoxicState', 'TimePoint', 'nCount_SCT', 'nFeature_SCT', 'S.Score', 'G2M.Score', 'Phase', 'seurat_clusters', 'SampleTagsShort', 'active_ident'
+    var: 'variable_gene', 'gene_name'
+    uns: 'active_ident_colors', 'seurat_clusters_colors'
+    obsm: 'X_pca', 'X_umap'
+    layers: 'raw_count'
+Filtering genes by counts ...
+Normalizing total counts ...
+Log1p transforming ...
+Subsetting highly variable genes ...
+No batch_key is provided, will use all cells for HVG selection.
+Binning data ...
+Vocab of size: 103 --> 100 genes, 3 special tokens ['<pad>', '<cls>', '<eoc>']
+Train samples: 8310
+Valid samples: 924
+Input length: 68
+device: cpu
+d_model: 2048
+nhead: 8
+nlayers: 6
+Total number of parameters: 12M
+random masking at epoch   1, ratio of masked values in train:  0.1383
+c:\Users\giaco\miniconda3\envs\main\Lib\site-packages\torch\amp\grad_scaler.py:131: UserWarning: torch.cuda.amp.GradScaler is enabled, but CUDA is not available.  Disabling.
+  warnings.warn(
+c:\Users\giaco\miniconda3\envs\main\Lib\site-packages\torch\amp\autocast_mode.py:250: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+| epoch   1 | 100/260 batches | lr 0.0001 | ms/batch 2718.67 | loss 351.74 | mse 351.74 | mre 446295.37 |
+| epoch   1 | 200/260 batches | lr 0.0001 | ms/batch 1879.34 | loss 185.04 | mse 185.04 | mre 377947.74 |
+-----------------------------------------------------------------------------------------
+| end of epoch   1 | time: 586.96s | valid loss/mse 153.7478 | mre 13912.4271
+-----------------------------------------------------------------------------------------
+Best model with score 153.7478
+Object `run.init` not found.
+wandb: WARNING Calling wandb.login() after wandb.init() has no effect.

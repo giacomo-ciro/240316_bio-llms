@@ -2,6 +2,7 @@ import torch
 from torch import nn, Tensor
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from typing import Dict, Mapping, Optional, Tuple, Any, Union
+import torch.nn.functional as F
 
 
 class TransformerModel(nn.Module):
@@ -31,15 +32,17 @@ class TransformerModel(nn.Module):
         self.decoder = ExprDecoder(d_model, explicit_zero_prob = True)
         self.mvc_decoder = MVCDecoder(d_model, explicit_zero_prob = True)
 
+        self.cell_emb_style = "cls"
+
     def _encode(
         self,
         g: Tensor,
         x: Tensor,
-        TF: Optional(Tensor)=None,
+        TF: Optional[Tensor]=None,
         ) -> Tensor:
 
-        g = self.emg_g(g)       # (batch, seq_len, embsize)
-        x = self.emg_g(x)       # (batch, seq_len, embsize)
+        g = self.emb_g(g)       # (batch, seq_len, embsize)
+        x = self.emb_x(x)       # (batch, seq_len, embsize)
         if TF:
             TF = self.emb_TF(TF)    # (batch, seq_len, seq_len, emb_size)
         
@@ -54,27 +57,52 @@ class TransformerModel(nn.Module):
         self,
         g: Tensor,
         x: Tensor,
-        TF: Optional(Tensor)=None,
+        TF: Optional[Tensor]=None,
         ):
         transformer_output = self._encode(g, x, TF)
 
         output = {}
         
+
         # Masked Value Prediction
         mlm_output = self.decoder(transformer_output)
         output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
         output["mlm_zero_probs"] = mlm_output["zero_probs"]
         
         # Masked Value Prediction (<cls> only)
-        mvc_output = self.mvc_decoder(cell_emb)
-        output["mvc_output"] = mvc_output["pred"]  # (batch, seq_len)
-        output["mvc_zero_probs"] = mvc_output["zero_probs"]
-
-        # Cell Embedding
-        cell_emb = self._get_cell_emb_from_layer(transformer_output, values)
-        output["cell_emb"] = cell_emb
+        # cell_emb = self._get_cell_emb_from_layer(transformer_output)
+        # mvc_output = self.mvc_decoder(cell_emb)
+        # output["mvc_output"] = mvc_output["pred"]  # (batch, seq_len)
+        # output["mvc_zero_probs"] = mvc_output["zero_probs"]
+        # output["cell_emb"] = cell_emb
 
         return output
+
+    def _get_cell_emb_from_layer(
+        self, layer_output: Tensor, weights: Tensor = None
+    ) -> Tensor:
+        """
+        Args:
+            layer_output(:obj:`Tensor`): shape (batch, seq_len, embsize)
+            weights(:obj:`Tensor`): shape (batch, seq_len), optional and only used
+                when :attr:`self.cell_emb_style` is "w-pool".
+
+        Returns:
+            :obj:`Tensor`: shape (batch, embsize)
+        """
+        if self.cell_emb_style == "cls":
+            cell_emb = layer_output[:, 0, :]  # (batch, embsize)
+        elif self.cell_emb_style == "avg-pool":
+            cell_emb = torch.mean(layer_output, dim=1)
+        elif self.cell_emb_style == "w-pool":
+            if weights is None:
+                raise ValueError("weights is required when cell_emb_style is w-pool")
+            if weights.dim() != 2:
+                raise ValueError("weights should be 2D")
+            cell_emb = torch.sum(layer_output * weights.unsqueeze(2), dim=1)
+            cell_emb = F.normalize(cell_emb, p=2, dim=1)  # (batch, embsize)
+
+        return cell_emb
 
 class GeneEncoder(nn.Module):
     def __init__(
