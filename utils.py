@@ -8,6 +8,7 @@ class AttrDict(dict):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
+
 def set_seed(seed):
     """set random seed."""
     random.seed(seed)
