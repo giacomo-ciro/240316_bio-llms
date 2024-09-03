@@ -204,3 +204,44 @@ class RowAttentionWithPairBias(nn.Module):
         a = self.linear_o(a)
         
         return a
+
+
+class Transition(nn.Module):
+    """
+    Feed-forward network.
+    """
+    def __init__(self, c_m, n=4):
+        """
+        Args:
+            c_m:
+                Input channel dimension
+            n:
+                Factor multiplied to c_m to obtain the hidden channel
+                dimension (default is 4).
+        """
+        super(Transition, self).__init__()
+
+        self.c_m = c_m
+        self.n = n
+
+        self.layer_norm = nn.LayerNorm(self.c_m)
+        self.linear_1 = nn.Linear(self.c_m, self.n * self.c_m)
+        self.relu = nn.ReLU()
+        self.linear_2 = nn.Linear(self.n * self.c_m, self.c_m)
+
+    def forward(self, m: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            m:
+                [B, r, r, c] Input 
+
+        Returns:
+            m:
+                [B, r, r, c] Update
+        """
+        m = self.layer_norm(m)
+        m = self.linear_1(m)
+        m = self.relu(m)
+        m = self.linear_2(m)
+
+        return m
