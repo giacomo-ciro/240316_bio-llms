@@ -11,7 +11,7 @@ import torch.nn as nn
 class OuterProductMean(nn.Module):
     """
     
-    Modify a given tensor computing the outer product mean.
+    Compute outer product mean of a given tensor.
     
     """
     def __init__(self, c_m, c_z, c_hidden, eps=1e-3):
@@ -245,3 +245,90 @@ class Transition(nn.Module):
         m = self.linear_2(m)
 
         return m
+    
+
+class BioFormerBlock(nn.Module):
+    """
+    
+    A single BioFormer block.
+    It performs gated-self attention with pair bias, transition and outer-product mean sequentially via residual connections.
+
+    """
+    def __init__(self, c_m, c_z, c_hidden, no_heads):
+        """
+        Args:
+            c_m:
+                Input channel dimension
+            c_z:
+                Pair embedding channel dimension
+            c_hidden:
+                Hidden channel dimension
+            no_heads:
+                Number of attention heads
+        """
+        super(BioFormerBlock, self).__init__()
+
+        self.opm = OuterProductMean(
+                                c_m=c_m,
+                                c_z=c_z,
+                                c_hidden=c_hidden
+                                )
+        self.attn = RowAttentionWithPairBias(
+                                        c_in=c_m,
+                                        c_hidden=c_hidden,
+                                        no_heads=no_heads,
+                                        pair_bias=True,
+                                        c_z=c_z, 
+                                        gating=True
+                                        )
+        self.trans = Transition(
+                            c_m=c_m,
+                            n=4
+                            )
+
+    def forward(self,m, z):
+        """
+        Args:
+            m:
+                [B, r, c_m] RNA-seq input
+            z:
+                [B, r, r, c_z] pair representation
+        Returns:
+            m:
+                [B, r, c_m] updated RNA-seqc
+            z:
+                [B, r, r, c_z] updated pair representation
+        """
+        m += self.attn(m, z)
+        m += self.trans(m)
+        z += self.opm(m)
+
+        return m, z
+        
+      
+class BioFormerStack(nn.Module):
+    """
+    
+    A series of BioFormer blocks.
+
+    """
+    def __init__(self,
+            c_m,
+            c_z,
+            c_hidden,
+            no_heads,
+            no_blocks
+            ):
+        super(BioFormerStack, self).__init__()
+
+        self.blocks = nn.ModuleList()
+        for _ in range(no_blocks):
+            block = BioFormerBlock(c_m=c_m, c_z=c_z, c_hidden=c_hidden, no_heads=no_heads)
+            self.blocks.append(block)
+
+    def forward(self, m, z):
+
+        for b in self.blocks:
+            m, z = b(m, z)
+        
+        return m, z
