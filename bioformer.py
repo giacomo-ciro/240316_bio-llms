@@ -4,31 +4,23 @@ import math
 import torch 
 import torch.nn as nn
 
+# B = batch_size
+# r = number of residues in the sequence
+# c = input embedding dimensions
+
 class OuterProductMean(nn.Module):
     """
-    Input:
-        RNA:
-            [*, N_res, c_m] tensor of sequence representation
     
-    Output:
-        Pair-wise updates:
-            [*, N_res, N_res, c_z] biases to update pair-wise representation
-
-    Pseudocode:
-        Take two columns i,j of RNA
-        project to c_hidden dimension
-        Outer-product(i,j) --> matrix (c, c)
-        Flatten --> vector (c**2, )
-        nn.Linear(c**2, c) --> vector (c, )
-        Pair-wise updates [i,j] = above
+    Modify a given tensor computing the outer product mean.
+    
     """
     def __init__(self, c_m, c_z, c_hidden, eps=1e-3):
         """
         Args:
             c_m:
-                MSA embedding channel dimension
+                Input embedding channel dimension
             c_z:
-                Pair embedding channel dimension (for the subsequent pair-wise update)
+                Pair embedding channel dimension
             c_hidden:
                 Hidden channel dimension
         """
@@ -45,13 +37,13 @@ class OuterProductMean(nn.Module):
         self.linear_out = nn.Linear(c_hidden ** 2, c_z)
 
     def _opm(self, a, b):
-        # [*, N_res, N_res, C, C]
+        # [*, r, r, c, c]
         outer = torch.einsum("...ab,...cd->...acbd", a, b)
 
-        # [*, N_res, N_res, C * C]
+        # [*, r, r, c * c]
         outer = outer.reshape(outer.shape[:-2] + (-1,)) # flatten last two dim
 
-        # [*, N_res, N_res, C_z]
+        # [*, r, r, c_z]
         outer = self.linear_out(outer)
 
         return outer
@@ -60,13 +52,13 @@ class OuterProductMean(nn.Module):
         """
         Args:
             m:
-                [*, N_res, C_m] MSA embedding
+                [B, r, c] Input embedding
 
         Returns:
-            [*, N_res, N_res, C_z] pair embedding update
+            [B, r, r, c_z] pair embedding update
         """
 
-        # [*, N_res, C_m]
+        # [*, r, c_m]
         ln = self.layer_norm(m)
 
         a = self.linear_1(ln)         
@@ -81,18 +73,9 @@ class OuterProductMean(nn.Module):
 
 class RowAttentionWithPairBias(nn.Module):
     """
-    Input:
-        RNA:
-            (r, c)
-        
-        TF:
-            (r, r, c)
-    
-    Output:
-        Attention:
-            (r, c)
 
-    Compute attn between any two vectors i,j in the input RNA using TF[i,j] as pair bias in the attn computation
+    Compute a given sequence self-attention using provided biases.
+    
     """
     def __init__(
         self,
@@ -128,24 +111,23 @@ class RowAttentionWithPairBias(nn.Module):
         self.c_z = c_z
         self.gating = gating
 
+        # Initial Normalization
         self.layer_norm_m = nn.LayerNorm(self.c_in)
 
-        self.layer_norm_z = None
-        self.linear_z = None
-        if self.pair_bias:
-            self.layer_norm_z = nn.LayerNorm(self.c_z)
-            self.linear_z = nn.Linear(self.c_z, self.no_heads, bias=False)
+        # Bias
+        self.layer_norm_z = nn.LayerNorm(self.c_z) if self.pair_bias else None
+        self.linear_z = nn.Linear(self.c_z, self.no_heads, bias=False) if self.pair_bias else None
 
-        self.linear_q = nn.Linear(self.c_q, self.c_hidden * self.no_heads, bias=False)
-        self.linear_k = nn.Linear(self.c_k, self.c_hidden * self.no_heads, bias=False)
-        self.linear_v = nn.Linear(self.c_v, self.c_hidden * self.no_heads, bias=False)
-        self.linear_o = nn.Linear(self.c_hidden * self.no_heads, self.c_q)
-
-        self.linear_g = None
-        if self.gating:
-            self.linear_g = nn.Linear(self.c_q, self.c_hidden * self.no_heads, init="gating")
-
-        self.sigmoid = nn.Sigmoid()
+        # Queries, Keys, Values
+        self.linear_q = nn.Linear(self.c_in, self.c_hidden * self.no_heads, bias=False)
+        self.linear_k = nn.Linear(self.c_in, self.c_hidden * self.no_heads, bias=False)
+        self.linear_v = nn.Linear(self.c_in, self.c_hidden * self.no_heads, bias=False)
+        
+        # Gating
+        self.linear_g = nn.Linear(self.c_in, self.c_hidden * self.no_heads) if self.gating else None
+        
+        # Final projection
+        self.linear_o = nn.Linear(self.c_hidden * self.no_heads, self.c_in)
 
     def forward(self,
             m: torch.Tensor,
@@ -154,57 +136,71 @@ class RowAttentionWithPairBias(nn.Module):
         """
         Args:
             m:
-                [*, N_res, C_m] MSA embedding
+                [B, r, c] Input embedding
             z:
-                [*, N_res, N_res, C_z] pair embedding. Required only if
+                [B, r, r, c_z] pair embedding. Required only if
                 pair_bias is True
         """
+        if z is None and self.pair_bias is True:
+            raise Warning("z required when pair bias is true")
+        
+        # [B, r, c]
         m = self.layer_norm_m(m)
 
+        # [B, r, c_hid * H]
         q = self.linear_q(m)
         k = self.linear_k(m)
         v = self.linear_v(m)
 
-        # [*, Q/K, H, C_hidden]
+        # [*, r, H, c_hid], where H = no_heads
         q = q.view(q.shape[:-1] + (self.no_heads, -1))
         k = k.view(k.shape[:-1] + (self.no_heads, -1))
         v = v.view(v.shape[:-1] + (self.no_heads, -1))
 
-        # TODO: check dimensions here, is this line needed?
-        # [*, H, Q/K, C_hidden]
-        # q = q.transpose(-2, -3)
-        # k = k.transpose(-2, -3)
-        # v = v.transpose(-2, -3)
+        # [*, H, r, c_hid]
+        q = q.transpose(-2, -3)
+        k = k.transpose(-2, -3)
+        v = v.transpose(-2, -3)
 
-        q /= math.sqrt(self.c_hidden)
+        q /= math.sqrt(self.c_hidden)   # scaled attn
 
-        # TODO: check dimensions here, is this line needed?
-        # [*, H, C_hidden, K]
-        # key = permute_final_dims(k, (1, 0))
+        # [*, H, c_hid, r]
+        k = torch.permute(k, (0, 1, 3, 2))  # flip last two dims for matmul
 
-        # [*, H, Q, K]
+        # [*, H, r, r]
         a = torch.matmul(q, k)
 
         if self.pair_bias:
+            # [B, r, r, c_z]
             z = self.layer_norm_z(z)
+            # [B, r, r, H]
             z = self.linear_z(z)
-            # TODO: sum to attn score
+            # [B, H, r, r]
+            z = torch.permute(z, (0, 3, 1, 2))
+            # [B, H, r, r]
+            a += z
 
-        a = nn.Functional.softmax(a, -1)
+        # [B, H, r, r]
+        a = nn.functional.softmax(a, -1)
 
-        # [*, H, Q, C_hidden]
+        # [B, H, r, c_hid]
         a = torch.matmul(a, v)
+
+        # [B, r, H, c_hid]
+        a = a.transpose(-2, -3)
         
         if self.gating:
-            g = self.sigmoid(self.linear_g(m))
-        
-            # [*, Q, H, C_hidden]
+            # [B, r, c_hid * H]
+            g = nn.functional.sigmoid(self.linear_g(m))
+            # [B, r, H, c_hid]
             g = g.view(g.shape[:-1] + (self.no_heads, -1))
-            o = o * g
+            # [B, r, H, c_hid]
+            a = a * g
 
-        # [*, Q, H * C_hidden]
-        o = o.reshape(o.shape[:-2] + (-1,))     # flatten H dim
+        # [B, r, H * c_hid]
+        a = a.reshape(a.shape[:-2] + (-1,))     # flatten H dim
 
-        # [*, Q, C_q]
-        o = self.linear_o(o)
+        # [B, r, c_m]
+        a = self.linear_o(a)
+        
         return a
