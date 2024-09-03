@@ -25,10 +25,17 @@ class TransformerModel(nn.Module):
         self.emb_g = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])
         self.emb_x = ContinuousValueEncoder(d_model, dropout)
         # TODO:
-        self.emb_TF = CategoryValueEncoder(3, d_model)
-       
-        encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+        # self.emb_z = CategoryValueEncoder(3, d_model)
+
+        self.bioformer = BioFormerStack(
+                            c_m=d_model,
+                            c_z=d_model,
+                            c_hidden=d_model,
+                            no_heads=nhead,
+                            no_blocks=nlayers
+                            )
+        # encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
+        # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
         self.decoder = ExprDecoder(d_model, explicit_zero_prob = True)
         self.mvc_decoder = MVCDecoder(d_model, explicit_zero_prob = True)
@@ -39,28 +46,34 @@ class TransformerModel(nn.Module):
         self,
         g: Tensor,
         x: Tensor,
-        TF: Optional[Tensor]=None,
+        z: Optional[Tensor]=None,
         ) -> Tensor:
-
+        
         g = self.emb_g(g)       # (batch, seq_len, embsize)
         x = self.emb_x(x)       # (batch, seq_len, embsize)
-        if TF:
-            TF = self.emb_TF(TF)    # (batch, seq_len, seq_len, emb_size)
+        
+        if z is None:
+            B, r, c = g.shape
+            z = torch.randn((B, r, r, c))
+        else:
+            z = self.emb_z(z)    # (batch, seq_len, seq_len, emb_size)
         
         self.cur_gene_token_embs = x
         
         total_embs = g + x
 
-        output = self.transformer_encoder(total_embs)
+        # output = self.transformer_encoder(total_embs)
+        output = self.bioformer(total_embs, z)
         return output  # (batch, seq_len, embsize)
 
     def forward(
         self,
         g: Tensor,
         x: Tensor,
-        TF: Optional[Tensor]=None,
+        z: Optional[Tensor]=None,
         ):
-        transformer_output = self._encode(g, x, TF)
+            
+        transformer_output = self._encode(g, x, z)
 
         output = {}
         
