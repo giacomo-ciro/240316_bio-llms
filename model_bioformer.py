@@ -6,13 +6,13 @@ import torch.nn.functional as F
 
 from bioformer import BioFormerStack
 
-class TransformerModel(nn.Module):
+class BioFormerModel(nn.Module):
     def __init__(
         self,
         ntoken: int,
         d_model: int,
         nhead: int,
-        d_hid: int,
+        # d_hid: int,
         nlayers: int,
         vocab: Any = None,
         dropout: float = 0.5,
@@ -53,8 +53,9 @@ class TransformerModel(nn.Module):
         x = self.emb_x(x)       # (batch, seq_len, embsize)
         
         if z is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             B, r, c = g.shape
-            z = torch.randn((B, r, r, c))
+            z = torch.randn((B, r, r, c)).to(device)
         else:
             z = self.emb_z(z)    # (batch, seq_len, seq_len, emb_size)
         
