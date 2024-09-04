@@ -17,7 +17,7 @@ class TransformerModel(nn.Module):
         vocab: Any = None,
         dropout: float = 0.5,
         pad_token: str = "<pad>",
-        pad_value: int = 0,
+        # pad_value: int = 0,
         ):
         super().__init__()
         self.d_model = d_model
@@ -63,7 +63,7 @@ class TransformerModel(nn.Module):
         total_embs = g + x
 
         # output = self.transformer_encoder(total_embs)
-        output = self.bioformer(total_embs, z)
+        output, z = self.bioformer(total_embs, z)
         return output  # (batch, seq_len, embsize)
 
     def forward(

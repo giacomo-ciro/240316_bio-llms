@@ -178,7 +178,7 @@ class RowAttentionWithPairBias(nn.Module):
             # [B, H, r, r]
             z = torch.permute(z, (0, 3, 1, 2))
             # [B, H, r, r]
-            a += z
+            a = a + z
 
         # [B, H, r, r]
         a = nn.functional.softmax(a, -1)
@@ -299,9 +299,9 @@ class BioFormerBlock(nn.Module):
             z:
                 [B, r, r, c_z] updated pair representation
         """
-        m += self.attn(m, z)
-        m += self.trans(m)
-        z += self.opm(m)
+        m = m + self.attn(m, z)
+        m = m + self.trans(m)
+        z = z + self.opm(m)
 
         return m, z
         
