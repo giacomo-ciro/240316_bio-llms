@@ -82,7 +82,7 @@ class RowAttentionWithPairBias(nn.Module):
         c_in,
         c_hidden,
         no_heads,
-        pair_bias=False,
+        pair_bias=True,
         c_z=None,
         gating=True,
     )-> None:
