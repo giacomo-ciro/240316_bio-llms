@@ -254,7 +254,15 @@ class BioFormerBlock(nn.Module):
     It performs gated-self attention with pair bias, transition and outer-product mean sequentially via residual connections.
 
     """
-    def __init__(self, c_m, c_z, c_hidden, no_heads):
+    def __init__(
+                self,
+                c_m,
+                c_z,
+                c_hidden,
+                no_heads,
+                do_opm,
+                do_pair_bias,
+                ):
         """
         Args:
             c_m:
@@ -265,9 +273,15 @@ class BioFormerBlock(nn.Module):
                 Hidden channel dimension
             no_heads:
                 Number of attention heads
+            do_opm:
+                Whether to compute the outer product mean update
+            do_pair_bias:
+                Whether to use the pair bias in the self-attention layer
         """
         super(BioFormerBlock, self).__init__()
-
+        
+        self.do_opm, self.do_pair_bias = do_opm, do_pair_bias
+        
         self.opm = OuterProductMean(
                                 c_m=c_m,
                                 c_z=c_z,
@@ -277,7 +291,7 @@ class BioFormerBlock(nn.Module):
                                         c_in=c_m,
                                         c_hidden=c_hidden,
                                         no_heads=no_heads,
-                                        pair_bias=True,
+                                        pair_bias=self.do_pair_bias,
                                         c_z=c_z, 
                                         gating=True
                                         )
@@ -301,7 +315,9 @@ class BioFormerBlock(nn.Module):
         """
         m = m + self.attn(m, z)
         m = m + self.trans(m)
-        z = z + self.opm(m)
+        
+        if self.do_opm:
+            z = z + self.opm(m)
 
         return m, z
         
@@ -317,13 +333,22 @@ class BioFormerStack(nn.Module):
             c_z,
             c_hidden,
             no_heads,
-            no_blocks
+            no_blocks,
+            do_opm,
+            do_pair_bias,
             ):
         super(BioFormerStack, self).__init__()
 
         self.blocks = nn.ModuleList()
         for _ in range(no_blocks):
-            block = BioFormerBlock(c_m=c_m, c_z=c_z, c_hidden=c_hidden, no_heads=no_heads)
+            block = BioFormerBlock(
+                                c_m=c_m,
+                                c_z=c_z,
+                                c_hidden=c_hidden,
+                                no_heads=no_heads,
+                                do_opm=do_opm,
+                                do_pair_bias=do_pair_bias
+                                )
             self.blocks.append(block)
 
     def forward(self, m, z):

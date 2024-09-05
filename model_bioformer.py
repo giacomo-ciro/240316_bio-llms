@@ -17,6 +17,8 @@ class BioFormerModel(nn.Module):
         vocab: Any = None,
         dropout: float = 0.5,
         pad_token: str = "<pad>",
+        do_opm: bool = True,
+        do_pair_bias: bool = True,
         # pad_value: int = 0,
         ):
         super().__init__()
@@ -32,7 +34,9 @@ class BioFormerModel(nn.Module):
                             c_z=d_model,
                             c_hidden=d_model,
                             no_heads=nhead,
-                            no_blocks=nlayers
+                            no_blocks=nlayers,
+                            do_opm=do_opm,
+                            do_pair_bias=do_pair_bias,
                             )
         # encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
         # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
