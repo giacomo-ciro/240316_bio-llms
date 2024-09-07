@@ -119,15 +119,15 @@ class RowAttentionWithPairBias(nn.Module):
         self.linear_z = nn.Linear(self.c_z, self.no_heads, bias=False) if self.pair_bias else None
 
         # Queries, Keys, Values
-        self.linear_q = nn.Linear(self.c_in, self.c_hidden * self.no_heads, bias=False)
-        self.linear_k = nn.Linear(self.c_in, self.c_hidden * self.no_heads, bias=False)
-        self.linear_v = nn.Linear(self.c_in, self.c_hidden * self.no_heads, bias=False)
+        self.linear_q = nn.Linear(self.c_in, self.c_hidden, bias=False)
+        self.linear_k = nn.Linear(self.c_in, self.c_hidden, bias=False)
+        self.linear_v = nn.Linear(self.c_in, self.c_hidden, bias=False)
         
         # Gating
-        self.linear_g = nn.Linear(self.c_in, self.c_hidden * self.no_heads) if self.gating else None
+        self.linear_g = nn.Linear(self.c_in, self.c_hidden) if self.gating else None
         
         # Final projection
-        self.linear_o = nn.Linear(self.c_hidden * self.no_heads, self.c_in)
+        self.linear_o = nn.Linear(self.c_hidden, self.c_in)
 
     def forward(self,
             m: torch.Tensor,
@@ -179,6 +179,7 @@ class RowAttentionWithPairBias(nn.Module):
             z = torch.permute(z, (0, 3, 1, 2))
             # [B, H, r, r]
             a = a + z
+            # print('Pair Bias')
 
         # [B, H, r, r]
         a = nn.functional.softmax(a, -1)
@@ -286,14 +287,14 @@ class BioFormerBlock(nn.Module):
                                 c_m=c_m,
                                 c_z=c_z,
                                 c_hidden=c_hidden
-                                )
+                                ) if self.do_opm else None
         self.attn = RowAttentionWithPairBias(
                                         c_in=c_m,
                                         c_hidden=c_hidden,
                                         no_heads=no_heads,
                                         pair_bias=self.do_pair_bias,
                                         c_z=c_z, 
-                                        gating=True
+                                        gating=False
                                         )
         self.trans = Transition(
                             c_m=c_m,
@@ -318,6 +319,7 @@ class BioFormerBlock(nn.Module):
         
         if self.do_opm:
             z = z + self.opm(m)
+            # print('opm update')
 
         return m, z
         

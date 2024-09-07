@@ -16,9 +16,12 @@ To test performance I conduc the following tests:
 1. **same no. params** --> I force scGPT and BioFormer to have the same number of parameters. Given what observed above, c_bioformer < c_scgpt. After 5 epochs of training on HYPOXIA_9K, scGPT has lower MSE, yet BioFormer has lower MRE. The models are somehow of comparable performance. Given NOTE 2 and without considering omp, bioformer is a transformer with less parameters than scGPT, yet of comparable performance. I conclude the opm layer and the bias term effectively mitigate the lower number of attn and ffnn parameters, suggesting this type of layers might be useful in the task at hand.  
 2. **same no. of attn params** --> I force scGPT and BioFormer to have the same number of parameters when not considering the opm layer. Hence, BioFormer is allowed to have more parameters is the difference is due to the opm layer only. In this scenario, BioFormer performs better than scGPT, they reach same mse, bioformer lower mre, and in both cases is faster to converge. Hence, same self-attn, same ffnn, opm looks like is actually useful!
 3. **ablation test** --> bioformer without opm and bias, is it exactly like scGPT?
+bioformer without opm and bias perform the same as bioformer with opm and bias, but for the MRE which is slightly higher. Moreover, withouth opm and bias converges faster. Maybe the key is the gating? no gating does not solve the problem. Maybe the factor of the ffnn, I use n=4 but in scGPT it's n=1. Testing bioformer with n=1: it's not the key factor. still bioformer converges way faster
 
 ---
 **Notation**
 - B = batch size;
 - r = sequence length;
 - c = embedding dimension.
+**Info**
+In the original scGPT paper, they implement the ffnn in the transformer encoder with the d_hid = d_model (not 4\*d_model as in the original transformer paper). In this implementation of scGPT I stick with the original d_hid = 4\*d_model for both scGPT and BioFormer.

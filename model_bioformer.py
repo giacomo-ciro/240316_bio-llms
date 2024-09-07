@@ -26,8 +26,7 @@ class BioFormerModel(nn.Module):
 
         self.emb_g = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])
         self.emb_x = ContinuousValueEncoder(d_model, dropout)
-        # TODO:
-        # self.emb_z = CategoryValueEncoder(3, d_model)
+        self.emb_z = ContinuousValueEncoder(d_model, dropout)
 
         self.bioformer = BioFormerStack(
                             c_m=d_model,
@@ -55,13 +54,7 @@ class BioFormerModel(nn.Module):
         
         g = self.emb_g(g)       # (batch, seq_len, embsize)
         x = self.emb_x(x)       # (batch, seq_len, embsize)
-        
-        if z is None:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            B, r, c = g.shape
-            z = torch.randn((B, r, r, c)).to(device)
-        else:
-            z = self.emb_z(z)    # (batch, seq_len, seq_len, emb_size)
+        z = self.emb_z(z)    # (batch, seq_len, seq_len, emb_size)
         
         self.cur_gene_token_embs = x
         
