@@ -283,11 +283,6 @@ class BioFormerBlock(nn.Module):
         
         self.do_opm, self.do_pair_bias = do_opm, do_pair_bias
         
-        self.opm = OuterProductMean(
-                                c_m=c_m,
-                                c_z=c_z,
-                                c_hidden=c_hidden
-                                ) if self.do_opm else None
         self.attn = RowAttentionWithPairBias(
                                         c_in=c_m,
                                         c_hidden=c_hidden,
@@ -300,6 +295,11 @@ class BioFormerBlock(nn.Module):
                             c_m=c_m,
                             n=4
                             )
+        self.opm = OuterProductMean(
+                                c_m=c_m,
+                                c_z=c_z,
+                                c_hidden=c_hidden
+                                ) if self.do_opm else None
 
     def forward(self,m, z):
         """

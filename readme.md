@@ -11,12 +11,15 @@ NOTE 1: the outer product between two c-dim vectors is a (c,c) matrix, which is 
 
 NOTE 2: bioformer is composed by 3 modules, self-attn with pair bias, ffnn, opm. Hence, it is a simple transformer layer except for the bias term and the opm.
 
+NOTE 3: the key strength of bioformer is the baility to reason over the pair representation, hence it is key to have a high enough N (bioformer blocks in the stack) to allow this.
+
 ## Tests
-To test performance I conduc the following tests:  
+To test performance I conduct the following tests:  
 1. **same no. params** --> I force scGPT and BioFormer to have the same number of parameters. Given what observed above, c_bioformer < c_scgpt. After 5 epochs of training on HYPOXIA_9K, scGPT has lower MSE, yet BioFormer has lower MRE. The models are somehow of comparable performance. Given NOTE 2 and without considering omp, bioformer is a transformer with less parameters than scGPT, yet of comparable performance. I conclude the opm layer and the bias term effectively mitigate the lower number of attn and ffnn parameters, suggesting this type of layers might be useful in the task at hand.  
 2. **same no. of attn params** --> I force scGPT and BioFormer to have the same number of parameters when not considering the opm layer. Hence, BioFormer is allowed to have more parameters is the difference is due to the opm layer only. In this scenario, BioFormer performs better than scGPT, they reach same mse, bioformer lower mre, and in both cases is faster to converge. Hence, same self-attn, same ffnn, opm looks like is actually useful!
 3. **ablation test** --> bioformer without opm and bias, is it exactly like scGPT?
 bioformer without opm and bias perform the same as bioformer with opm and bias, but for the MRE which is slightly higher. Moreover, withouth opm and bias converges faster. Maybe the key is the gating? no gating does not solve the problem. Maybe the factor of the ffnn, I use n=4 but in scGPT it's n=1. Testing bioformer with n=1: it's not the key factor. still bioformer converges way faster
+4. **increasing N** --> in all these tests I stuck with a low N=2 for both scgpt and bioformer. I tried to increase N=8 and bioformer 32 is comparable to scgpt 256 with N=2. I have to further test for example expanding both N's.
 
 ---
 **Notation**
