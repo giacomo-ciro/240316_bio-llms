@@ -5,7 +5,11 @@ import torch
 import torch.nn as nn
 
 class Vocab(nn.Module):
-    r"""Creates a vocab object which maps tokens to indices."""
+    """
+    
+    Creates a vocab object which maps tokens to indices.
+    
+    """
 
     def __init__(self, stoi: Dict[str, int], itos: List[str], default_index: Optional[int] = None) -> None:
         super(Vocab, self).__init__()
