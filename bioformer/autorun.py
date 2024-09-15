@@ -20,18 +20,18 @@ from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
 config = AttrDict({
-    "run_name": "scGPT_64_x8",
+    "run_name": "BioFormer_32_x8_initz",
     "dataset_name": "HYPOXIA_9K",
-    "model": "scGPT",       # BioFormer / scGPT
+    "model": "BioFormer",       # BioFormer / scGPT
     
-    "d_model": 64,
+    "d_model": 32,
     "nhead": 4,
     "nlayers": 8,
     "n_hvg": 100,
     
     "do_pair_bias": True,
     "do_opm": True,
-    "init_z": False,
+    "init_z": True,
 
     "do_train": True,
     "epochs": 5,
