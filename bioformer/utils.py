@@ -73,9 +73,9 @@ def get_z(
     for b in range(B):  # batches
         if b % 50 == 0: print(f'Parsing batch {b:04}/{B}')
         for i in range(r):
-            # if interactions.source_genesymbol.str.contains(itos[g[b, i].item()]).any():
-            #     counter[b] += 1
-                for j in range(0, i+1):
+            if interactions.source_genesymbol.str.contains(itos[g[b, i].item()]).any():
+                counter[b] += 1
+                for j in range(r):
                     
                     # i source, j target
                     interaction_type = interactions.loc[(interactions.source_genesymbol == itos[g[b, i].item()]) & (interactions.target_genesymbol == itos[g[b, j].item()])]
@@ -84,10 +84,10 @@ def get_z(
                         z[b, i, j] -=  interaction_type.is_inhibition.item()
                     
                     # j source, i target
-                    interaction_type = interactions.loc[(interactions.source_genesymbol == itos[g[b, j].item()]) & (interactions.target_genesymbol == itos[g[b, i].item()])]
-                    if interaction_type.shape[0] == 1:
-                        z[b, j, i] +=  interaction_type.is_stimulation.item()
-                        z[b, j, i] -=  interaction_type.is_inhibition.item()
+                    # interaction_type = interactions.loc[(interactions.source_genesymbol == itos[g[b, j].item()]) & (interactions.target_genesymbol == itos[g[b, i].item()])]
+                    # if interaction_type.shape[0] == 1:
+                    #     z[b, j, i] +=  interaction_type.is_stimulation.item()
+                    #     z[b, j, i] -=  interaction_type.is_inhibition.item()
     print(f'Avg sources found per batch: {counter.mean():.2f}')
     return z
 
