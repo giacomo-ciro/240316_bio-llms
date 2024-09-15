@@ -4,6 +4,118 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from typing import Dict, Mapping, Optional, Tuple, Any, Union
 import torch.nn.functional as F
 
+from bioformer import BioFormerStack
+
+class BioFormerModel(nn.Module):
+    def __init__(
+        self,
+        ntoken: int,
+        d_model: int,
+        nhead: int,
+        # d_hid: int,
+        nlayers: int,
+        vocab: Any = None,
+        dropout: float = 0.5,
+        pad_token: str = "<pad>",
+        do_opm: bool = True,
+        do_pair_bias: bool = True,
+        # pad_value: int = 0,
+        ):
+        super().__init__()
+        self.d_model = d_model
+
+        self.emb_g = GeneEncoder(ntoken, d_model, padding_idx=vocab[pad_token])
+        self.emb_x = ContinuousValueEncoder(d_model, dropout)
+        self.emb_z = ContinuousValueEncoder(d_model, dropout)
+
+        self.bioformer = BioFormerStack(
+                            c_m=d_model,
+                            c_z=d_model,
+                            c_hidden=d_model,
+                            no_heads=nhead,
+                            no_blocks=nlayers,
+                            do_opm=do_opm,
+                            do_pair_bias=do_pair_bias,
+                            )
+        # encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
+        # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+
+        self.decoder = ExprDecoder(d_model, explicit_zero_prob = True)
+        self.mvc_decoder = MVCDecoder(d_model, explicit_zero_prob = True)
+
+        self.cell_emb_style = "cls"
+
+    def _encode(
+        self,
+        g: Tensor,
+        x: Tensor,
+        z: Optional[Tensor]=None,
+        ) -> Tensor:
+        
+        g = self.emb_g(g)       # (batch, seq_len, embsize)
+        x = self.emb_x(x)       # (batch, seq_len, embsize)
+        z = self.emb_z(z)    # (batch, seq_len, seq_len, emb_size)
+        
+        self.cur_gene_token_embs = x
+        
+        total_embs = g + x
+
+        # output = self.transformer_encoder(total_embs)
+        output, z = self.bioformer(total_embs, z)
+        return output  # (batch, seq_len, embsize)
+
+    def forward(
+        self,
+        g: Tensor,
+        x: Tensor,
+        z: Optional[Tensor]=None,
+        ):
+            
+        transformer_output = self._encode(g, x, z)
+
+        output = {}
+        
+
+        # Masked Value Prediction
+        mlm_output = self.decoder(transformer_output)
+        output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
+        output["mlm_zero_probs"] = mlm_output["zero_probs"]
+        
+        # Masked Value Prediction (<cls> only)
+        # cell_emb = self._get_cell_emb_from_layer(transformer_output)
+        # mvc_output = self.mvc_decoder(cell_emb)
+        # output["mvc_output"] = mvc_output["pred"]  # (batch, seq_len)
+        # output["mvc_zero_probs"] = mvc_output["zero_probs"]
+        # output["cell_emb"] = cell_emb
+
+        return output
+
+    def _get_cell_emb_from_layer(
+        self, layer_output: Tensor, weights: Tensor = None
+    ) -> Tensor:
+        """
+        Args:
+            layer_output(:obj:`Tensor`): shape (batch, seq_len, embsize)
+            weights(:obj:`Tensor`): shape (batch, seq_len), optional and only used
+                when :attr:`self.cell_emb_style` is "w-pool".
+
+        Returns:
+            :obj:`Tensor`: shape (batch, embsize)
+        """
+        if self.cell_emb_style == "cls":
+            cell_emb = layer_output[:, 0, :]  # (batch, embsize)
+        elif self.cell_emb_style == "avg-pool":
+            cell_emb = torch.mean(layer_output, dim=1)
+        elif self.cell_emb_style == "w-pool":
+            if weights is None:
+                raise ValueError("weights is required when cell_emb_style is w-pool")
+            if weights.dim() != 2:
+                raise ValueError("weights should be 2D")
+            cell_emb = torch.sum(layer_output * weights.unsqueeze(2), dim=1)
+            cell_emb = F.normalize(cell_emb, p=2, dim=1)  # (batch, embsize)
+
+        return cell_emb
+    
 
 class TransformerModel(nn.Module):
     def __init__(
@@ -97,6 +209,7 @@ class TransformerModel(nn.Module):
             cell_emb = F.normalize(cell_emb, p=2, dim=1)  # (batch, embsize)
 
         return cell_emb
+
 
 class GeneEncoder(nn.Module):
     def __init__(

@@ -135,7 +135,7 @@ class Preprocessor:
         if self.log1p:
             print("Log1p transforming ...")
             if is_logged:
-                logger.warning(
+                print(
                     "The input data seems to be already log1p transformed. "
                     "Set `log1p=False` to avoid double log1p transform."
                 )
@@ -184,7 +184,7 @@ class Preprocessor:
                 )
             for row in layer_data:
                 if row.max() == 0:
-                    logger.warning(
+                    print(
                         "The input data contains all zero rows. Please make sure "
                         "this is expected. You can use the `filter_cell_by_counts` "
                         "arg to filter out all zero rows."
