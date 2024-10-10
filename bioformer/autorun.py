@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
 
+import json
 import numpy as np
 import scanpy as sc
 import time
@@ -16,42 +17,42 @@ from myTorchtext import Vocab
 from preprocess import Preprocessor
 from tokenizer import tokenize_and_pad_batch, retrieve_tfs, random_mask_value
 from model import TransformerModel, BioFormerModel
-# from model_bioformer import BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
-config = AttrDict({
-    "run_name": "BioFormer_32_x8_initz",
-    "dataset_name": "HYPOXIA_9K",
-    "model": "BioFormer",       # BioFormer / scGPT
+# config = AttrDict({
+#     "run_name": "BioFormer_32_x8_initz",
+#     "dataset_name": "HYPOXIA_9K",
+#     "model": "BioFormer",       # BioFormer / scGPT
     
-    "d_model": 32,
-    "nhead": 4,
-    "nlayers": 8,
-    "n_hvg": 100,
+#     "d_model": 32,
+#     "nhead": 4,
+#     "nlayers": 8,
+#     "n_hvg": 100,
     
-    "do_pair_bias": True,
-    "do_opm": True,
-    "init_z": True,
+#     "do_pair_bias": True,
+#     "do_opm": True,
+#     "init_z": True,
 
-    "do_train": True,
-    "epochs": 5,
+#     "do_train": True,
+#     "epochs": 5,
 
-    "wandb": True,
-    "seed": 5289,
+#     "wandb": True,
+#     "seed": 5289,
     
-    "n_bins": 51,
-    "include_zero_gene": False,
-    "mask_single_value": False,
-    "dropout": 0.2,
-    "batch_size": 32,
-    "log_interval": 100,
-    "lr": 0.0001,
-    "amp": True,
-    "schedule_ratio": 0.9,
-    "GEPC": False,   # If Gene Expression Prediction for Cell Modelling objective (MLM from <cls> only) TODO in model.py
-    "explicit_zero_prob": True, # if modelling gene expression also as bern var
+#     "n_bins": 51,
+#     "include_zero_gene": False,
+#     "mask_single_value": False,
+#     "dropout": 0.2,
+#     "batch_size": 32,
+#     "log_interval": 100,
+#     "lr": 0.0001,
+#     "amp": True,
+#     "schedule_ratio": 0.9,
+#     "GEPC": False,   # If Gene Expression Prediction for Cell Modelling objective (MLM from <cls> only) TODO in model.py
+#     "explicit_zero_prob": True, # if modelling gene expression also as bern var
 
-})
+# })
+config = AttrDict(json.load(open('config.json')))
 print(config)
 
 if config.seed:
