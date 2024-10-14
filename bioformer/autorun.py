@@ -19,39 +19,6 @@ from tokenizer import tokenize_and_pad_batch, retrieve_tfs, random_mask_value
 from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
-# config = AttrDict({
-#     "run_name": "BioFormer_32_x8_initz",
-#     "dataset_name": "HYPOXIA_9K",
-#     "model": "BioFormer",       # BioFormer / scGPT
-    
-#     "d_model": 32,
-#     "nhead": 4,
-#     "nlayers": 8,
-#     "n_hvg": 100,
-    
-#     "do_pair_bias": True,
-#     "do_opm": True,
-#     "init_z": True,
-
-#     "do_train": True,
-#     "epochs": 5,
-
-#     "wandb": True,
-#     "seed": 5289,
-    
-#     "n_bins": 51,
-#     "include_zero_gene": False,
-#     "mask_single_value": False,
-#     "dropout": 0.2,
-#     "batch_size": 32,
-#     "log_interval": 100,
-#     "lr": 0.0001,
-#     "amp": True,
-#     "schedule_ratio": 0.9,
-#     "GEPC": False,   # If Gene Expression Prediction for Cell Modelling objective (MLM from <cls> only) TODO in model.py
-#     "explicit_zero_prob": True, # if modelling gene expression also as bern var
-
-# })
 config = AttrDict(json.load(open('config.json')))
 print(config)
 
@@ -279,12 +246,16 @@ elif config.model == "BioFormer":
     ) 
 
 model.to(device)
+model = torch.nn.DataParallel(model)
+
 n_params = sum(p.numel() for p in model.parameters())
+model_size_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
+
 if config.wandb:
     wandb.config.update({"Model Parameters": n_params})
 
 print(f'''
-device: {device} | model: {config.model} | d_model: {config.d_model} | nhead: {config.nhead} | nlayers: {config.nlayers} | tot. params: {n_params/1e6:.2f}M
+device: {device} | model: {config.model} | d_model: {config.d_model} | nhead: {config.nhead} | nlayers: {config.nlayers} | tot. params: {n_params/1e6:.2f}M | model size: {model_size_bytes/1e6:.2f}MB
 ''')
 
 criterion = masked_mse_loss
