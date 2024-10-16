@@ -58,3 +58,16 @@ According to the input we can summarize as follows the memory requirements:
 |     16     |    500 | 64 |  4   |    32     | 2 MB | 64 MB | 65,536 MB |  
 
 In conclusion, the upper bound to memory requirements is the parallelized outer product. Should I try a non-parallelized implementation? Perhaps, generate the outer product and immediately project it without first computing everything so instead of having a $(c,c)$ I have the flattened and projected single entry.
+
+## AF2 Configuration
+In the original AlphaFold 2 paper, the authors train the model with the following parameters configuration:
+- N = 48,
+- r = 256, 
+- c_model = 256,
+- c_z = 128
+- c_opm = 32
+- c_head = 32
+- n_head = 8
+- batch_size = 128  
+
+They parallelize training by using 128 Google V3 TPUs (16Gib), one per each batch.
