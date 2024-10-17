@@ -28,6 +28,8 @@
     "amp": true,
     "schedule_ratio": 0.9,
     "GEPC": false, 
-    "explicit_zero_prob": true
+    "explicit_zero_prob": true,
+
+    "save_model": "../checkpoints/"
 
 }

@@ -3,7 +3,8 @@ Some notes, thoughts and ideas stemming from my research activity at the Buffa L
 ## MISC
 - as of now, the data is being masked and split into train and valid at each epoch!! I am testing using what I could have been training on the previous epoch!!!!! 
 - It might make sense, since I am masking different genes at each iteration, thus are virtually different samples?
-- 
+- when training with automatic mixed precision, some parameters might have dtype float16. In this case, the corresponding gradient will be float16 as well and in the case of very small updates this might flush to zero, and the parameter update is lost. To avoid this, scaler.scale() scales the loss by a certain factor to avoid flushing to zero during backward pass, and scales back to the original value when optimizer.step().
+- TODO: create a forward_pass() function to compute the forward pass, enclose in with torch.no_grad() if evaluating
 ## Memory Complexity Analysis
 Currenly, I am getting a `CUDA out-of-memory: trying to allocate 200GiB` when on the cluster using 2xNVIDIA A100 80GB an instance of bioformer with configuration:
 

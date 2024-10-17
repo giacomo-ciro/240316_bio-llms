@@ -212,110 +212,133 @@ print(f'''
 device: {device} | model: {config.model} | d_model: {config.d_model} | nhead: {config.nhead} | nlayers: {config.nlayers} | tot. params: {n_params/1e6:.2f}M | model size: {model_size_bytes/1e6:.2f}MB
 ''')
 
+# --------------------------------------------------------------------------- #
+# --------------------------- TRAINING LOOP --------------------------------- #
+# --------------------------------------------------------------------------- #
+
 criterion = masked_mse_loss
 criterion_dab = nn.CrossEntropyLoss()
-optimizer = torch.optim.AdamW(
-    model.parameters(), lr=config.lr, eps=1e-4 if config.amp else 1e-8
-)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=config.schedule_ratio)
+optimizer = torch.optim.AdamW(model.parameters(),
+                              lr=config.lr,
+                              eps=1e-4 if config.amp else 1e-8
+                              )
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                            1,
+                                            gamma=config.schedule_ratio
+                                            )
 scaler = torch.cuda.amp.GradScaler(enabled=config.amp)
 
-def train(model: nn.Module, loader: DataLoader) -> None:
-    """
-    Train the model for one epoch.
-    """
-    model.train()
-    total_loss, total_mse, total_gepc = 0.0, 0.0, 0.0
-    total_mre = 0.0
-    log_interval = config.log_interval
-    start_time = time.time()
+best_val_loss = float("inf")
+best_model = None
 
-    num_batches = len(loader)
-    for batch, batch_data in enumerate(loader):
-        input_gene_ids = batch_data["gene_ids"].to(device)
-        input_values = batch_data["values"].to(device)
-        target_values = batch_data["target_values"].to(device)
-        
-        if config.model == "BioFormer":
-            z = batch_data['z'].to(device)
-            # B, r = input_values.shape
-            # z = torch.randn((B, r, r)).to(device)
-        
-
-        # ---------- FORWARD PASS -------------------
-        with torch.cuda.amp.autocast(enabled=config.amp):
-            
-            if config.model == "scGPT":
-                output_dict = model(input_gene_ids, input_values)
-            elif config.model == "BioFormer":
-                output_dict = model(input_gene_ids, input_values, z)
-            
-            masked_positions = input_values.eq(mask_value)  # the postions to predict
-            loss = loss_mse = criterion(output_dict["mlm_output"], target_values, masked_positions)
-            
-            metrics_to_log = {"train/mse": loss_mse.item()}
-            
-            if config.explicit_zero_prob:
-                loss_zero_log_prob = criterion_neg_log_bernoulli(output_dict["mlm_zero_probs"], target_values, masked_positions)
-                loss += loss_zero_log_prob
-                metrics_to_log.update({"train/nzlp": loss_zero_log_prob.item()})
-            
-            if config.GEPC:
-                loss_gepc = criterion(output_dict["mvc_output"], target_values, masked_positions)
-                loss += loss_gepc
-                metrics_to_log.update({"train/mvc": loss_gepc.item()})
-            
-            if config.GEPC and config.explicit_zero_prob:
-                loss_gepc_zero_log_prob = criterion_neg_log_bernoulli(output_dict["mvc_zero_probs"], target_values, masked_positions)
-                loss = loss + loss_gepc_zero_log_prob
-                metrics_to_log.update({"train/mvc_nzlp": loss_gepc_zero_log_prob.item()})
-
-        # ---------- BACKWARD PASS ------------------
-        model.zero_grad()
-        scaler.scale(loss).backward()   # training via the aggregated loss
-        scaler.unscale_(optimizer)
-        scaler.step(optimizer)
-        scaler.update()
-        # -------------------------------------------
-        
-        if config.wandb:
-            wandb.log(metrics_to_log)
-
-        # Compute MRE for validation
-        with torch.no_grad():
-            mre = masked_relative_error(output_dict["mlm_output"], target_values, masked_positions)
-
-        total_loss += loss.item()                               # sum of all losses
-        total_mse += loss_mse.item()                            # MSE alone
-        total_gepc += loss_gepc.item() if config.GEPC else 0.0  # MSE from GEPC alone
-        total_mre += mre.item()                                 # MRE alone
-        
-        # Avg of loss across all log_interval batches (i.e., log_interval = 10, avg loss every 10 batches)
-        if batch % log_interval == 0 and batch > 0:
-            lr = scheduler.get_last_lr()[0]
-            ms_per_batch = (time.time() - start_time) * 1000 / log_interval
-            cur_loss = total_loss / log_interval
-            cur_mse = total_mse / log_interval
-            cur_gepc = total_gepc / log_interval if config.GEPC else 0.0
-            cur_mre = total_mre / log_interval
-            
-            print(f"| epoch {epoch:3d} | {batch:3d}/{num_batches:3d} batches | lr {lr:05.4f} | ms/batch {ms_per_batch:5.2f} | train/loss {cur_loss:5.2f} | train/mse {cur_mse:5.2f} |" + (f"train/gepc {cur_gepc:5.2f} |" if config.GEPC else "") + f"train/mre {cur_mre:5.2f} |" )
-            
-            total_loss = 0
-            total_mse = 0
-            total_gepc = 0
-            total_mre = 0
-            start_time = time.time()
-
-def define_wandb_metrics():
+if config.wandb:
     wandb.define_metric("valid/mse", summary="min", step_metric="epoch")
     wandb.define_metric("valid/mre", summary="min", step_metric="epoch")
 
-def evaluate(model: nn.Module, loader: DataLoader) -> float:
-    """
-    Evaluate the model on the evaluation data.
-    """
+for epoch in range(1, config.epochs + 1):
+    epoch_start_time = time.time()
+    
+    dataset = prepare_data()
+    train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [0.9, 0.1])
+
+    train_loader = DataLoader(
+        dataset=valid_dataset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        drop_last=False,
+        pin_memory=True,
+    )
+    valid_loader = DataLoader(
+        dataset=valid_dataset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        drop_last=False,
+        pin_memory=True,
+    )
+
+    # -------------------------------- TRAINING ----------------------------------- #
+    if config.do_train:
+        model.train()
+        total_loss, total_mse, total_gepc, total_mre = 0.0, 0.0, 0.0, 0.0
+        log_interval = config.log_interval
+        start_time = time.time()
+
+        num_batches = len(loader)
+        for batch, batch_data in enumerate(loader):
+            input_gene_ids = batch_data["gene_ids"].to(device)
+            input_values = batch_data["values"].to(device)
+            target_values = batch_data["target_values"].to(device)
+            
+            if config.model == "BioFormer":
+                z = batch_data['z'].to(device)
+
+            # ---------- forward -------------------
+            with torch.cuda.amp.autocast(enabled=config.amp):
+                
+                if config.model == "scGPT":
+                    output_dict = model(input_gene_ids, input_values)
+                elif config.model == "BioFormer":
+                    output_dict = model(input_gene_ids, input_values, z)
+                
+                masked_positions = input_values.eq(mask_value)  # the postions to predict
+                loss = loss_mse = criterion(output_dict["mlm_output"], target_values, masked_positions)
+                
+                metrics_to_log = {"train/mse": loss_mse.item()}
+                
+                if config.explicit_zero_prob:
+                    loss_zero_log_prob = criterion_neg_log_bernoulli(output_dict["mlm_zero_probs"], target_values, masked_positions)
+                    loss += loss_zero_log_prob
+                    metrics_to_log.update({"train/nzlp": loss_zero_log_prob.item()})
+                
+                if config.GEPC:
+                    loss_gepc = criterion(output_dict["mvc_output"], target_values, masked_positions)
+                    loss += loss_gepc
+                    metrics_to_log.update({"train/mvc": loss_gepc.item()})
+                
+                if config.GEPC and config.explicit_zero_prob:
+                    loss_gepc_zero_log_prob = criterion_neg_log_bernoulli(output_dict["mvc_zero_probs"], target_values, masked_positions)
+                    loss = loss + loss_gepc_zero_log_prob
+                    metrics_to_log.update({"train/mvc_nzlp": loss_gepc_zero_log_prob.item()})
+
+            # -------------- backward ------------------
+            model.zero_grad()
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            scaler.step(optimizer)
+            scaler.update()
+            
+            # --------------- logs & stats ---------------------
+            if config.wandb:
+                wandb.log(metrics_to_log)
+
+            with torch.no_grad():
+                mre = masked_relative_error(output_dict["mlm_output"], target_values, masked_positions)
+
+            total_loss += loss.item()                               # sum of all losses
+            total_mse += loss_mse.item()                            # MSE alone
+            total_gepc += loss_gepc.item() if config.GEPC else 0.0  # MSE from GEPC alone
+            total_mre += mre.item()                                 # MRE alone
+            
+            # For logging purposes, aggregate loss across log_interval batches 
+            if batch % log_interval == 0 and batch > 0:
+                lr = scheduler.get_last_lr()[0]
+                ms_per_batch = (time.time() - start_time) * 1000 / log_interval
+                cur_loss = total_loss / log_interval
+                cur_mse = total_mse / log_interval
+                cur_gepc = total_gepc / log_interval if config.GEPC else 0.0
+                cur_mre = total_mre / log_interval
+                
+                print(f"| epoch {epoch:3d} | {batch:3d}/{num_batches:3d} batches | lr {lr:05.4f} | ms/batch {ms_per_batch:5.2f} | train/loss {cur_loss:5.2f} | train/mse {cur_mse:5.2f} |" + (f"train/gepc {cur_gepc:5.2f} |" if config.GEPC else "") + f"train/mre {cur_mre:5.2f} |" )
+                
+                total_loss = 0
+                total_mse = 0
+                total_gepc = 0
+                total_mre = 0
+                start_time = time.time()
+
+    # -------------------------------- VALIDATION ----------------------------------- #
     model.eval()
+    loader = valid_loader
     total_loss = 0.0
     total_mre = 0.0
     total_num = 0
@@ -327,8 +350,6 @@ def evaluate(model: nn.Module, loader: DataLoader) -> float:
 
             if config.model == "BioFormer":
                 z = batch_data['z'].to(device)
-                # B, r = input_values.shape
-                # z = torch.randn((B, r, r)).to(device)
 
             with torch.cuda.amp.autocast(enabled=config.amp):
                 
@@ -353,41 +374,10 @@ def evaluate(model: nn.Module, loader: DataLoader) -> float:
             "epoch": epoch
             })
 
-    return total_loss / total_num, total_mre / total_num
-
-best_val_loss = float("inf")
-best_model = None
-
-if config.wandb:
-    define_wandb_metrics()
-
-for epoch in range(1, config.epochs + 1):
-    epoch_start_time = time.time()
+    val_loss = total_loss / total_num
+    val_mre = total_mre / total_num
     
-    dataset = prepare_data()
-    train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [50000, 10000])
-    train_loader = prepare_dataloader(
-        train_dataset,
-        batch_size=config.batch_size,
-        shuffle=False,
-        drop_last=False,
-    )
-    valid_loader = prepare_dataloader(
-        valid_dataset,
-        batch_size=config.batch_size,
-        shuffle=False,
-        drop_last=False,
-    )
-
-    # TRAINING      --> over all batches in the train_loader
-    if config.do_train:
-        train(model, loader=train_loader)
-
-    # VALIDATION    --> avg loss across all batches in valid_loader
-    val_loss, val_mre = evaluate(model, loader=valid_loader)
-    
-    
-    # Some epoch-related stats
+    # -------------------------------- EPOCH-RELATED STATS ----------------------------------- #
     elapsed = time.time() - epoch_start_time
     print("-" * 89)
     print(f"| end of epoch {epoch:3d} | runtime: {elapsed:5.2f}s | valid/mse {val_loss:5.4f} | valid/mre {val_mre:5.4f}")
@@ -397,9 +387,17 @@ for epoch in range(1, config.epochs + 1):
         best_val_loss = val_loss
         best_model = copy.deepcopy(model)
         best_model_epoch = epoch
-        print(f"Best model with valid/mse {best_val_loss:5.4f}")
+        print(f"New best model found at epoch {epoch} with valid/mse {best_val_loss:5.4f}")
 
     scheduler.step()
+# --------------------------------- END OF TRAINING LOOP -------------------------------------- #
+
+# --------------------------------- final house-keeping --------------------------------------- #
+if config.save_model:
+    if config.save_model[-1] != "/":
+        config.save_model += "/"
+    dir = f"{config.save_model}/{config.run_name}_{time.time():.0f}.pt"
+    torch.save(best_model.state_dict(), dir)
 
 if config.wandb:
     run.finish()

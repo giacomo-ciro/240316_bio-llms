@@ -131,7 +131,6 @@ class TransformerModel(nn.Module):
         vocab: Any = None,
         dropout: float = 0.5,
         pad_token: str = "<pad>",
-        # pad_value: int = 0,
         ):
         super().__init__()
         self.d_model = d_model
@@ -143,7 +142,7 @@ class TransformerModel(nn.Module):
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
         self.decoder = ExprDecoder(d_model, explicit_zero_prob = True)
-        self.mvc_decoder = MVCDecoder(d_model, explicit_zero_prob = True)
+        # self.mvc_decoder = MVCDecoder(d_model, explicit_zero_prob = True)
 
         self.cell_emb_style = "cls"
 
