@@ -12,24 +12,22 @@
     "do_opm": true,
     "init_z": false,
 
-    "do_train": false,
-    "epochs": 1,
+    "do_train": true,
+    "epochs": 5,
+    "batch_size": 32,
 
     "wandb": false,
     "seed": 5289,
     
     "n_bins": 51,
     "include_zero_gene": false,
-    "mask_single_value": false,
-    "dropout": 0.2,
-    "batch_size": 32,
+    "explicit_zero_prob": true,
+
     "log_interval": 100,
     "lr": 0.0001,
     "amp": true,
     "schedule_ratio": 0.9,
-    "GEPC": false, 
-    "explicit_zero_prob": true,
 
-    "save_model": "../checkpoints/"
+    "save_model": false
 
 }

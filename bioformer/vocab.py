@@ -15,7 +15,7 @@ class Vocab(nn.Module):
                  default_index: Optional[int] = None
                  ) -> None:
         super(Vocab, self).__init__()
-        
+        tokens = tokens + ["<pad>", "<cls>"]
         self.stoi = {s:i for i, s in enumerate(tokens)}
         self.itos = {i:s for i, s in enumerate(tokens)}
         self.default_index = default_index

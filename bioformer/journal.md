@@ -5,6 +5,16 @@ Some notes, thoughts and ideas stemming from my research activity at the Buffa L
 - It might make sense, since I am masking different genes at each iteration, thus are virtually different samples?
 - when training with automatic mixed precision, some parameters might have dtype float16. In this case, the corresponding gradient will be float16 as well and in the case of very small updates this might flush to zero, and the parameter update is lost. To avoid this, scaler.scale() scales the loss by a certain factor to avoid flushing to zero during backward pass, and scales back to the original value when optimizer.step().
 - TODO: create a forward_pass() function to compute the forward pass, enclose in with torch.no_grad() if evaluating
+- who uses these parameters?
+  - pad_token -> tokenize_and_pad_batch(), Vocab(), TransformerModel(), BioFormerModel()
+  - mask_value -> random_mask_value(), masked_positions = input_values.eq(mask_value) both in train and valid loop
+  - pad_value -> tokenize_and_pad_batch(), random_mask_value(), 
+- by default, the number of effective bins used will be config.n_bins - 1, because the bin 0 is reserved as value for the <cls> token
+-  
+
+
+
+
 ## Memory Complexity Analysis
 Currenly, I am getting a `CUDA out-of-memory: trying to allocate 200GiB` when on the cluster using 2xNVIDIA A100 80GB an instance of bioformer with configuration:
 

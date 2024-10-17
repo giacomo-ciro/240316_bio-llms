@@ -262,7 +262,7 @@ def _digitize(x: np.ndarray, bins: np.ndarray, side="both") -> np.ndarray:
     rands = np.random.rand(len(x))  # uniform random numbers
 
     digits = rands * (right_difits - left_digits) + left_digits
-    digits = np.ceil(digits).astype(np.int64)
+    digits = np.ceil(digits).astype(np.int16)
     return digits
 
 def binning(
