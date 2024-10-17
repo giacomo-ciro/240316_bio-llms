@@ -15,12 +15,15 @@ class BioFormerModel(nn.Module):
         self,
         ntoken: int,
         d_model: int,
+        d_z: int,
+        d_opm: int,
         nhead: int,
         nlayers: int,
         pad_id: int,
         dropout: float = 0.2,
         do_opm: bool = True,
         do_pair_bias: bool = True,
+        explicit_zero_prob: bool = False,
         ):
         super().__init__()
         self.d_model = d_model
@@ -32,14 +35,14 @@ class BioFormerModel(nn.Module):
         self.emb_x = ContinuousValueEncoder(d_model,
                                             dropout
                                             )
-        self.emb_z = ContinuousValueEncoder(d_model,
+        self.emb_z = ContinuousValueEncoder(d_z,
                                             dropout
                                             )
 
         self.bioformer = BioFormerStack(
                             c_m=d_model,
-                            c_z=d_model,
-                            c_hidden=d_model,
+                            c_z=d_z,
+                            c_hidden=d_opm,
                             no_heads=nhead,
                             no_blocks=nlayers,
                             do_opm=do_opm,
@@ -48,10 +51,9 @@ class BioFormerModel(nn.Module):
         # encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
         # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
-        self.decoder = ExprDecoder(d_model, explicit_zero_prob = True)
-        self.mvc_decoder = MVCDecoder(d_model, explicit_zero_prob = True)
-
-        self.cell_emb_style = "cls"
+        self.decoder = ExprDecoder(d_model,
+                                   explicit_zero_prob = explicit_zero_prob
+                                   )
 
     def _encode(
         self,
@@ -68,8 +70,8 @@ class BioFormerModel(nn.Module):
         
         total_embs = g + x
 
-        # output = self.transformer_encoder(total_embs)
         output, z = self.bioformer(total_embs, z)
+        
         return output  # (batch, seq_len, embsize)
 
     def forward(
@@ -87,14 +89,9 @@ class BioFormerModel(nn.Module):
         # Masked Value Prediction
         mlm_output = self.decoder(transformer_output)
         output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
-        output["mlm_zero_probs"] = mlm_output["zero_probs"]
         
-        # Masked Value Prediction (<cls> only)
-        # cell_emb = self._get_cell_emb_from_layer(transformer_output)
-        # mvc_output = self.mvc_decoder(cell_emb)
-        # output["mvc_output"] = mvc_output["pred"]  # (batch, seq_len)
-        # output["mvc_zero_probs"] = mvc_output["zero_probs"]
-        # output["cell_emb"] = cell_emb
+        if self.decoder.explicit_zero_prob:
+            output["mlm_zero_probs"] = mlm_output["zero_probs"]
 
         return output
 
@@ -189,7 +186,9 @@ class TransformerModel(nn.Module):
         # Masked Value Prediction
         mlm_output = self.decoder(transformer_output)
         output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
-        output["mlm_zero_probs"] = mlm_output["zero_probs"]
+        
+        if self.decoder.explicit_zero_prob:
+            output["mlm_zero_probs"] = mlm_output["zero_probs"]
 
         return output
 

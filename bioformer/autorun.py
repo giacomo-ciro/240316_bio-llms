@@ -113,12 +113,16 @@ if config.model == "scGPT":
 elif config.model == "BioFormer":
     model = BioFormerModel(ntoken=len(vocab),
                            d_model=config.d_model,
+                           d_z = config.d_z,
+                           d_opm = config.d_opm,
                            nhead=config.nhead,
                            nlayers=config.nlayers,
                            do_pair_bias=config.do_pair_bias,
                            do_opm=config.do_opm,
-                           pad_id = vocab.stoi['<pad>']
+                           pad_id = vocab.stoi['<pad>'],
+                           explicit_zero_prob=config.explicit_zero_prob
                            ) 
+print(model)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 model = torch.nn.DataParallel(model)
@@ -200,7 +204,7 @@ for epoch in range(1, config.epochs + 1):
     train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [0.9, 0.1])
 
     train_loader = DataLoader(
-        dataset=valid_dataset,
+        dataset=train_dataset,
         batch_size=config.batch_size,
         shuffle=True,
     )
@@ -212,11 +216,14 @@ for epoch in range(1, config.epochs + 1):
 
     # -------------------------------- TRAINING ----------------------------------- #
     if config.do_train:
+        model.train()
 
         loader = train_loader
 
-        model.train()
-        total_loss, total_mse, total_gepc, total_mre = 0.0, 0.0, 0.0, 0.0
+        total_loss = 0.0
+        total_mse = 0.0
+        total_gepc = 0.0
+        total_mre = 0.0
         log_interval = config.log_interval
         start_time = time.time()
 
@@ -274,10 +281,9 @@ for epoch in range(1, config.epochs + 1):
                 ms_per_batch = (time.time() - start_time) * 1000 / log_interval
                 cur_loss = total_loss / log_interval
                 cur_mse = total_mse / log_interval
-                cur_gepc = total_gepc / log_interval if config.GEPC else 0.0
                 cur_mre = total_mre / log_interval
                 
-                print(f"| epoch {epoch:3d} | {batch:3d}/{num_batches:3d} batches | lr {lr:05.4f} | ms/batch {ms_per_batch:5.2f} | train/loss {cur_loss:5.2f} | train/mse {cur_mse:5.2f} |" + (f"train/gepc {cur_gepc:5.2f} |" if config.GEPC else "") + f"train/mre {cur_mre:5.2f} |" )
+                print(f"| epoch {epoch:3d} | {batch:3d}/{num_batches:3d} batches | lr {lr:05.4f} | ms/batch {ms_per_batch:5.2f} | train/loss {cur_loss:5.2f} | train/mse {cur_mse:5.2f} |" + f"train/mre {cur_mre:5.2f} |" )
                 
                 total_loss = 0
                 total_mse = 0
@@ -286,7 +292,9 @@ for epoch in range(1, config.epochs + 1):
 
     # -------------------------------- VALIDATION ----------------------------------- #
     model.eval()
+    
     loader = valid_loader
+    
     total_loss = 0.0
     total_mre = 0.0
     total_num = 0

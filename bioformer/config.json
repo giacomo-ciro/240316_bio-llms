@@ -1,19 +1,21 @@
 {
     "run_name": "test-autorun",
     "dataset_name": "HYPOXIA_9K",
-    "model": "scGPT",
+    "model": "BioFormer",
     
     "d_model": 32,
     "nhead": 4,
     "nlayers": 8,
-    "n_hvg": 100,
+    "n_hvg": 20,
     
     "do_pair_bias": true,
     "do_opm": true,
+    "d_z": 32,
+    "d_opm": 8,
     "init_z": false,
 
     "do_train": true,
-    "epochs": 5,
+    "epochs": 3,
     "batch_size": 32,
 
     "wandb": false,
