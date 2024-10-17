@@ -139,7 +139,14 @@ def prepare_data():
 
 # dataset
 class SeqDataset(Dataset):
-    def __init__(self, data: Dict[str, torch.Tensor]):
+    """
+    Create RNA-seq dataset.
+    
+    Args:
+        data:
+            <dict> with keys ['gene_ids', 'values', 'target_values', 'z']
+    """
+    def __init__(self, data: dict):
         self.data = data
 
     def __len__(self):
@@ -147,31 +154,6 @@ class SeqDataset(Dataset):
 
     def __getitem__(self, idx):
         return {k: v[idx] for k, v in self.data.items()}
-
-# train_set, val_set = torch.utils.data.random_split(dataset, [50000, 10000])
-
-# data_loader
-def prepare_dataloader(
-    # data_pt: Dict[str, torch.Tensor],
-    dataset: Dataset,
-    batch_size: int,
-    shuffle: bool = False,
-    drop_last: bool = False,
-    num_workers: int = 0,
-) -> DataLoader:
-    
-    # dataset = SeqDataset(data_pt)
-
-    data_loader = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=drop_last,
-        num_workers=num_workers,
-        pin_memory=True,
-    )
-    
-    return data_loader
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ntoken = len(vocab)  # size of vocabulary

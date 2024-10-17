@@ -12,7 +12,7 @@
     "do_opm": true,
     "init_z": false,
 
-    "do_train": true,
+    "do_train": false,
     "epochs": 1,
 
     "wandb": false,
