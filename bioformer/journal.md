@@ -1,6 +1,9 @@
 # Research Journal
 Some notes, thoughts and ideas stemming from my research activity at the Buffa Lab at Bocconi University.
-
+## MISC
+- as of now, the data is being masked and split into train and valid at each epoch!! I am testing using what I could have been training on the previous epoch!!!!! 
+- It might make sense, since I am masking different genes at each iteration, thus are virtually different samples?
+- 
 ## Memory Complexity Analysis
 Currenly, I am getting a `CUDA out-of-memory: trying to allocate 200GiB` when on the cluster using 2xNVIDIA A100 80GB an instance of bioformer with configuration:
 

@@ -1,7 +1,9 @@
-from typing import Dict, List, Optional, Tuple, Union
-import numpy as np
 import torch
-from myTorchtext import Vocab
+import numpy as np
+import pandas as pd 
+from typing import Dict, List, Optional, Tuple, Union
+
+from vocab import Vocab
 
 def tokenize_batch(
     data: np.ndarray,
@@ -64,7 +66,6 @@ def tokenize_batch(
                 mod_types = torch.from_numpy(mod_types).long()
         tokenized_data.append((genes, values, mod_types))
     return tokenized_data
-
 
 def pad_batch(
     batch: List[Tuple],
@@ -152,7 +153,6 @@ def pad_batch(
         batch_padded["mod_types"] = torch.stack(mod_types_list, dim=0)
     return batch_padded
 
-
 def tokenize_and_pad_batch(
     data: np.ndarray,
     gene_ids: np.ndarray,
@@ -194,7 +194,6 @@ def tokenize_and_pad_batch(
         vocab_mod=vocab_mod,
     )
     return batch_padded
-
 
 def random_mask_value(
     values: Union[torch.Tensor, np.ndarray],
@@ -297,4 +296,5 @@ def retrieve_tfs(
         print('Available Targets: ', count_targets)
         print('With at least one available Source: ', count_sources)
     return conditions
+
 

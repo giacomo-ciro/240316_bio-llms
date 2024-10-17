@@ -120,7 +120,6 @@ class BioFormerModel(nn.Module):
 
         return cell_emb
     
-
 class TransformerModel(nn.Module):
     def __init__(
         self,

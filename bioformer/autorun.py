@@ -9,13 +9,12 @@ import scanpy as sc
 import time
 import copy
 from typing import List, Tuple, Dict, Union, Optional
-from scipy.sparse import issparse
 from sklearn.model_selection import train_test_split
 
-from utils import set_seed, AttrDict, get_interactions, get_z
-from myTorchtext import Vocab
-from preprocess import Preprocessor
-from tokenizer import tokenize_and_pad_batch, retrieve_tfs, random_mask_value
+from utils import set_seed, AttrDict
+from vocab import Vocab
+from preprocess import Preprocessor, get_interactions, get_z
+from tokenizer import tokenize_and_pad_batch, random_mask_value
 from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
@@ -88,25 +87,17 @@ preprocessor = Preprocessor(
 preprocessor(adata, batch_key=None)
 
 input_layer_key = "X_binned"
-all_counts = (
-    adata.layers[input_layer_key].toarray()
-    if issparse(adata.layers[input_layer_key])
-    else adata.layers[input_layer_key]
-)
+all_counts = adata.layers[input_layer_key].toarray()
 genes = adata.var["gene_name"].tolist()
 
-train_data, valid_data = train_test_split(all_counts, test_size=0.1, shuffle=True)
-
 # Vocab
-stoi = {s:i for i, s in enumerate(genes + special_tokens)}
-itos = {i:s for i, s in enumerate(genes + special_tokens)}
-vocab = Vocab(stoi, itos)
+vocab = Vocab(genes + special_tokens)
 vocab.set_default_index(vocab["<pad>"]) # index to return if token not found in vocab
 gene_ids = np.array(vocab(genes), dtype=int)
 print(f'Vocab of size: {len(vocab)} --> {len(genes)} genes, {len(special_tokens)} special tokens {special_tokens}')
 
-tokenized_train = tokenize_and_pad_batch(
-    train_data,
+tokenized = tokenize_and_pad_batch(
+    all_counts,
     gene_ids,
     max_len=max_seq_len,
     vocab=vocab,
@@ -115,73 +106,36 @@ tokenized_train = tokenize_and_pad_batch(
     append_cls=True,  # append <cls> token at the beginning
     include_zero_gene=include_zero_gene,
 )
-tokenized_valid = tokenize_and_pad_batch(
-    valid_data,
-    gene_ids,
-    max_len=max_seq_len,
-    vocab=vocab,
-    pad_token=pad_token,
-    pad_value=pad_value,
-    append_cls=True,
-    include_zero_gene=include_zero_gene,
-)
-print(f"Train samples: {tokenized_train['genes'].shape[0]}")
-print(f"Valid samples: {tokenized_valid['genes'].shape[0]}")
-print(f"Input length: {tokenized_valid['genes'].shape[1]}")
 
-def prepare_data(use_condition_labels = False):
+print(f"Tot samples: {tokenized['genes'].shape[0]}")
+print(f"Input length: {tokenized['genes'].shape[1]}")
+
+def prepare_data():
     
-    masked_values_train = random_mask_value(
-        tokenized_train["values"],
-        mask_value=mask_value,
-        pad_value=pad_value,
-        mask_single_value = config.mask_single_value
-    )
-    masked_values_valid = random_mask_value(
-        tokenized_valid["values"],
+    masked_values = random_mask_value(
+        tokenized["values"],
         mask_value=mask_value,
         pad_value=pad_value,
         mask_single_value = config.mask_single_value
     )
 
-    print(f"random masking at epoch {epoch}, ratio of masked values in train: {(masked_values_train == mask_value).sum() / (masked_values_train - pad_value).count_nonzero():.4f}")
+    print(f"random masking at epoch {epoch}, ratio of masked values: {(masked_values == mask_value).sum() / (masked_values - pad_value).count_nonzero():.4f}")
 
-    # input_gene_ids_train, input_gene_ids_valid = tokenized_train["genes"], tokenized_valid["genes"]
-    # input_values_train, input_values_valid = masked_values_train, masked_values_valid
-    # target_values_train, target_values_valid = tokenized_train["values"], tokenized_valid["values"]
-    B_train, r_train = masked_values_train.shape
-    B_valid, r_valid = masked_values_valid.shape
+    B, r = masked_values.shape
+    
     if config.init_z:
         tf = get_interactions(genes,path_to_transcriptional_interactions)
-    z_train = get_z(tokenized_train["genes"], tf, vocab.itos) if config.init_z else torch.zeros((B_train, r_train, r_train))    # [B, r, r]
-    z_valid = get_z(tokenized_valid["genes"], tf, vocab.itos) if config.init_z else torch.zeros((B_valid, r_valid, r_valid))    # [B, r, r]
+    z_train = get_z(tokenized["genes"], tf, vocab.itos) if config.init_z else torch.zeros((B, r, r))    # [B, r, r]
 
-    train_data_pt = {
-        "gene_ids": tokenized_train["genes"],           # [B, r]
-        "values": masked_values_train,                  # [B, r]
-        "target_values": tokenized_train["values"],     # [B, r]
+    data_pt = {
+        "gene_ids": tokenized["genes"],           # [B, r]
+        "values": masked_values,                  # [B, r]
+        "target_values": tokenized["values"],     # [B, r]
         "z": z_train
     }
-    valid_data_pt = {
-        "gene_ids": tokenized_valid["genes"],
-        "values": masked_values_valid,
-        "target_values": tokenized_valid["values"],
-        "z": z_valid
-    }
 
-    # if use_condition_labels:
-    #     train_data_pt['conditions'] = retrieve_tfs(
-    #         input_gene_ids_train,
-    #         input_values_train,     # masked
-    #         tf = tf                                  
-    #     )
-    #     valid_data_pt['conditions'] = retrieve_tfs(
-    #         input_gene_ids_valid,
-    #         input_values_valid,      # masked
-    #         tf = tf                                  
-    #     )
-
-    return train_data_pt, valid_data_pt
+    dataset = SeqDataset(data_pt)
+    return dataset
 
 # dataset
 class SeqDataset(Dataset):
@@ -194,16 +148,19 @@ class SeqDataset(Dataset):
     def __getitem__(self, idx):
         return {k: v[idx] for k, v in self.data.items()}
 
+# train_set, val_set = torch.utils.data.random_split(dataset, [50000, 10000])
 
 # data_loader
 def prepare_dataloader(
-    data_pt: Dict[str, torch.Tensor],
+    # data_pt: Dict[str, torch.Tensor],
+    dataset: Dataset,
     batch_size: int,
     shuffle: bool = False,
     drop_last: bool = False,
     num_workers: int = 0,
 ) -> DataLoader:
-    dataset = SeqDataset(data_pt)
+    
+    # dataset = SeqDataset(data_pt)
 
     data_loader = DataLoader(
         dataset=dataset,
@@ -228,19 +185,16 @@ if config.model == "scGPT":
         vocab=vocab,
         dropout=config.dropout,
         pad_token=pad_token,
-        # pad_value=pad_value,
     ) 
 elif config.model == "BioFormer":
     model = BioFormerModel(
         ntoken=ntoken,
         d_model=config.d_model,
         nhead=config.nhead,
-        # d_hid=config.d_model,
         nlayers=config.nlayers,
         vocab=vocab,
         dropout=config.dropout,
         pad_token=pad_token,
-        # pad_value=pad_value,
         do_pair_bias=config.do_pair_bias,
         do_opm=config.do_opm,
     ) 
@@ -402,24 +356,24 @@ def evaluate(model: nn.Module, loader: DataLoader) -> float:
     return total_loss / total_num, total_mre / total_num
 
 best_val_loss = float("inf")
-best_avg_bio = 0.0
 best_model = None
+
 if config.wandb:
     define_wandb_metrics()
 
 for epoch in range(1, config.epochs + 1):
     epoch_start_time = time.time()
     
-    train_data_pt, valid_data_pt = prepare_data()
-    
+    dataset = prepare_data()
+    train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [50000, 10000])
     train_loader = prepare_dataloader(
-        train_data_pt,
+        train_dataset,
         batch_size=config.batch_size,
         shuffle=False,
         drop_last=False,
     )
     valid_loader = prepare_dataloader(
-        valid_data_pt,
+        valid_dataset,
         batch_size=config.batch_size,
         shuffle=False,
         drop_last=False,
