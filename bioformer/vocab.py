@@ -1,8 +1,7 @@
-from typing import Dict, Iterable, List, Optional, Tuple, Union
-from collections import Counter, OrderedDict
-
 import torch
 import torch.nn as nn
+
+from typing import Dict, List, Optional
 
 class Vocab(nn.Module):
     """
@@ -11,10 +10,14 @@ class Vocab(nn.Module):
     
     """
 
-    def __init__(self, stoi: Dict[str, int], itos: List[str], default_index: Optional[int] = None) -> None:
+    def __init__(self,
+                 tokens,
+                 default_index: Optional[int] = None
+                 ) -> None:
         super(Vocab, self).__init__()
-        self.stoi = stoi  # String to index mapping
-        self.itos = itos  # Index to string mapping
+        tokens = tokens + ["<pad>", "<cls>"]
+        self.stoi = {s:i for i, s in enumerate(tokens)}
+        self.itos = {i:s for i, s in enumerate(tokens)}
         self.default_index = default_index
 
     @property

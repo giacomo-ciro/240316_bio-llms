@@ -1,12 +1,10 @@
-from typing import Dict, Optional, Union
-
-import numpy as np
 import torch
-from scipy.sparse import issparse
+import numpy as np
+import pandas as pd
 import scanpy as sc
+from typing import Dict, Optional, Union
 from scanpy.get import _get_obs_rep, _set_obs_rep
 from anndata import AnnData
-
 
 class Preprocessor:
     """
@@ -177,7 +175,7 @@ class Preprocessor:
             binned_rows = []
             bin_edges = []
             layer_data = _get_obs_rep(adata, layer=key_to_process)
-            layer_data = layer_data.toarray() if issparse(layer_data) else layer_data
+            layer_data = layer_data.toarray()
             if layer_data.min() < 0:
                 raise ValueError(
                     f"Assuming non-negative data, but got min value {layer_data.min()}."
@@ -233,7 +231,6 @@ class Preprocessor:
 
         return True
 
-
 def _digitize(x: np.ndarray, bins: np.ndarray, side="both") -> np.ndarray:
     """
     Digitize the data into bins. This method spreads data uniformly when bins
@@ -265,9 +262,8 @@ def _digitize(x: np.ndarray, bins: np.ndarray, side="both") -> np.ndarray:
     rands = np.random.rand(len(x))  # uniform random numbers
 
     digits = rands * (right_difits - left_digits) + left_digits
-    digits = np.ceil(digits).astype(np.int64)
+    digits = np.ceil(digits).astype(np.int16)
     return digits
-
 
 def binning(
     row: Union[np.ndarray, torch.Tensor], n_bins: int
@@ -299,3 +295,77 @@ def binning(
         bins = np.quantile(row, np.linspace(0, 1, n_bins - 1))
         binned_row = _digitize(row, bins)
     return torch.from_numpy(binned_row) if not return_np else binned_row.astype(dtype)
+
+def get_interactions(
+        genes: list=None,
+        path_to_file: str=None
+    )->pd.DataFrame:
+    """
+    
+    Given a list of genes, returns the available interactions.
+    
+    *Args:
+        genes: 
+            list of <str> containing gene names.
+        path_to_file:
+            path to the file containing the interactions.
+            It must be a .csv file with columns ['source_genesymbol', 'target_genesymbol', 'is_stimulation', 'is_inhibition']
+
+    
+    Returns:
+        <Pandas.DataFrame> with columns ['source_genesymbol', 'target_genesymbol', 'is_stimulation', 'is_inhibition']
+    
+    """
+    df = pd.read_csv(path_to_file, low_memory=False, index_col = 0)
+    print(f'Interactions before filtering: {df.shape[0]:,}')
+    df = df.loc[df.source_genesymbol.isin(genes)]
+    df = df.loc[df.target_genesymbol.isin(genes)]
+    print(f'Interactions after filtering: {df.shape[0]}')
+    
+    return df[['source_genesymbol', 'target_genesymbol', 'is_stimulation', 'is_inhibition']]
+
+def get_z(
+        g: torch.Tensor = None,
+        interactions: pd.DataFrame = None,
+        itos: dict = None
+    )->torch.Tensor:
+    """
+    *args:
+        g:
+            [B, r]:
+                   vectors of gene tokens (gene_ids)
+        interactions:
+            pandas.DataFrame with columns ['source_genesymbol', 'target_genesymbol', 'is_stimulation', 'is_inhibition']
+    
+    Returns:
+        z:
+            [B, r, r] <pyTorch.Tensor>
+    """
+    # TODO
+    # import transcriptional_interactions and filter vocabulary
+    # (maybe a cache to avoid importing and checking vocabulary every time?)
+    # init (B, r, r) z tensor
+    # loop through all genes and fill z
+    B, r = g.shape
+    counter = torch.zeros(B)
+    z = torch.zeros((B, r, r))
+    for b in range(B):  # batches
+        if b % 50 == 0: print(f'Parsing batch {b:04}/{B}')
+        for i in range(r):
+            if interactions.source_genesymbol.str.contains(itos[g[b, i].item()]).any():
+                counter[b] += 1
+                for j in range(r):
+                    
+                    # i source, j target
+                    interaction_type = interactions.loc[(interactions.source_genesymbol == itos[g[b, i].item()]) & (interactions.target_genesymbol == itos[g[b, j].item()])]
+                    if interaction_type.shape[0] == 1:
+                        z[b, i, j] +=  interaction_type.is_stimulation.item()
+                        z[b, i, j] -=  interaction_type.is_inhibition.item()
+                    
+                    # j source, i target
+                    # interaction_type = interactions.loc[(interactions.source_genesymbol == itos[g[b, j].item()]) & (interactions.target_genesymbol == itos[g[b, i].item()])]
+                    # if interaction_type.shape[0] == 1:
+                    #     z[b, j, i] +=  interaction_type.is_stimulation.item()
+                    #     z[b, j, i] -=  interaction_type.is_inhibition.item()
+    print(f'Avg sources found per batch: {counter.mean():.2f}')
+    return z
