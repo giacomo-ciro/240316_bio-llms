@@ -6,7 +6,7 @@
     "d_model": 32,
     "nhead": 4,
     "nlayers": 8,
-    "n_hvg": 20,
+    "n_hvg": 500,
     
     "do_pair_bias": true,
     "do_opm": true,
@@ -15,7 +15,7 @@
     "init_z": false,
 
     "do_train": true,
-    "epochs": 3,
+    "epochs": 1,
     "batch_size": 32,
 
     "wandb": false,
