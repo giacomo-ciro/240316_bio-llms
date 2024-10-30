@@ -194,10 +194,15 @@ optimizer = torch.optim.AdamW(model.parameters(),
                               lr=config.lr,
                               eps=1e-4 if config.amp else 1e-8
                               )
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                            1,
-                                            gamma=config.schedule_ratio
-                                            )
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+#                                             1,
+#                                             gamma=config.schedule_ratio
+#                                             )
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                       factor=0.1,
+                                                       patience=2,  
+                                                       threshold=1                                                                                          
+                                                       )
 scaler = torch.cuda.amp.GradScaler(enabled=config.amp)
 
 best_val_loss = float("inf")
@@ -355,7 +360,7 @@ for epoch in range(1, config.epochs + 1):
         print(f"New best model found at epoch {epoch} with valid/mse {best_val_loss:5.4f}")
 
     # Update lr
-    scheduler.step()
+    scheduler.step(val_loss)
 
 # --------------------------------- END OF TRAINING LOOP -------------------------------------- #
 
