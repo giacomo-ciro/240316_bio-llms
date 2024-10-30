@@ -134,6 +134,17 @@ print(f'''device: {device} | model: {config.model} | d_model: {config.d_model} |
 if config.wandb:
     wandb.config.update({"Model Parameters": n_params})
 
+# Max memory required per intermediate step:
+if config.model == 'BioFormer':
+        # no. elements in the [B, r, r, c, c] opm intermediate matrix
+        tmp = config.batch_size * (config.n_hvg + 1) ** 2 * config.d_opm ** 2
+        
+        # number of bytes required (using np.float32)
+        tmp = tmp * 4
+
+        print(f'memory required for opm: {tmp/1e6 :,.2f}MB')
+        
+
 # RNA-seq Dataset
 class SeqDataset(Dataset):
     """

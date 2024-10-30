@@ -187,7 +187,7 @@ def random_mask_value(
         values = values.copy()
 
     for i in range(len(values)):
-        row = values[i]
+        row = values[i, 1:]
         non_padding_idx = np.nonzero(row - pad_value)[0]
         n_mask = int(len(non_padding_idx) * mask_ratio) if not mask_single_value else 1
         mask_idx = np.random.choice(non_padding_idx, n_mask, replace=False)
