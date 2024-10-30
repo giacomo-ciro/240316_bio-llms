@@ -272,8 +272,6 @@ for epoch in range(1, config.epochs + 1):
             scaler.unscale_(optimizer)
             scaler.step(optimizer)
             scaler.update()
-
-            scheduler.step()
             
             # --------------- logs & stats ---------------------
             if config.wandb:
@@ -355,6 +353,10 @@ for epoch in range(1, config.epochs + 1):
         best_model = copy.deepcopy(model)
         best_model_epoch = epoch
         print(f"New best model found at epoch {epoch} with valid/mse {best_val_loss:5.4f}")
+
+    # Update lr
+    scheduler.step()
+
 # --------------------------------- END OF TRAINING LOOP -------------------------------------- #
 
 # --------------------------------- final house-keeping --------------------------------------- #
