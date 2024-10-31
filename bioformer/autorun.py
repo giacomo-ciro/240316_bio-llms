@@ -368,8 +368,14 @@ for epoch in range(1, config.epochs + 1):
 if config.save_model:
     if config.save_model[-1] != "/":
         config.save_model += "/"
-    dir = f"{config.save_model}/{config.run_name}_{time.time():.0f}.pt"
-    torch.save(best_model.state_dict(), dir)
+    dir = f"{config.save_model}/{config.run_name}_{time.time():.0f}"
+    
+    # Save Model
+    torch.save(best_model.state_dict(), f"{dir}.pt")
+    
+    # Save Args
+    with open(f"{dir}.json", "w") as f:
+        json.dump(config, f)
 
 if config.wandb:
     run.finish()
