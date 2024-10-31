@@ -17,7 +17,7 @@ from tokenizer import Tokenizer, random_mask_value
 from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
-config = AttrDict(json.load(open('config.json')))
+config = AttrDict(json.load(open('./config.json')))
 print(config)
 
 if config.seed:
@@ -84,7 +84,7 @@ genes = adata.var["gene_name"].tolist()
 vocab = Vocab(genes)
 vocab.set_default_index(vocab["<pad>"]) # index to return if token not found in vocab
 print(f'Init vocab of size {len(vocab)} with {config.n_hvg} unique genes...')
-print(f'CLS in vocab: {vocab.stoi['<cls>']}')
+print(f"CLS in vocab: {vocab.stoi['<cls>']}")
 
 # Tokenize & Pad
 tokenizer = Tokenizer(vocab = vocab,
