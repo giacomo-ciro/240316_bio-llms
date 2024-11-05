@@ -1,12 +1,12 @@
 {
-    "run_name": "test-autorun",
+    "run_name": "scgpt-256-8-256",
     "dataset_name": "HYPOXIA_9K",
     "model": "scGPT",
     
-    "d_model": 32,
-    "nhead": 4,
+    "d_model": 256,
+    "nhead": 8,
     "nlayers": 8,
-    "n_hvg": 50,
+    "n_hvg": 255,
     
     "do_pair_bias": true,
     "do_opm": true,
@@ -15,10 +15,10 @@
     "init_z": false,
 
     "do_train": true,
-    "epochs": 3,
-    "batch_size": 32,
+    "epochs": 5,
+    "batch_size": 16,
 
-    "wandb": false,
+    "wandb": true,
     "seed": 5289,
     
     "n_bins": 51,
