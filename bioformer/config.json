@@ -1,12 +1,12 @@
 {
-    "run_name": "scgpt-256-8-256",
-    "dataset_name": "HYPOXIA_9K",
-    "model": "scGPT",
+    "run_name": "bioformer-256-8-256",
+    "dataset_name": "BREAST_25K",
+    "model": "BioFormer",
     
-    "d_model": 256,
+    "d_model": 32,
     "nhead": 8,
     "nlayers": 8,
-    "n_hvg": 255,
+    "n_hvg": 50,
     
     "do_pair_bias": true,
     "do_opm": true,
@@ -18,7 +18,7 @@
     "epochs": 5,
     "batch_size": 16,
 
-    "wandb": true,
+    "wandb": false,
     "seed": 5289,
     
     "n_bins": 51,

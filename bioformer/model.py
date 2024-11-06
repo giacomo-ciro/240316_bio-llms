@@ -72,27 +72,33 @@ class BioFormerModel(nn.Module):
 
         output, z = self.bioformer(total_embs, z)
         
-        return output  # (batch, seq_len, embsize)
+        return output, z  # (batch, seq_len, embsize)
 
     def forward(
         self,
         g: Tensor,
         x: Tensor,
         z: Optional[Tensor]=None,
+        return_z: bool = False,
         ):
             
-        transformer_output = self._encode(g, x, z)
+        transformer_output, z = self._encode(g, x, z)
 
         output = {}
         
 
         # Masked Value Prediction
         mlm_output = self.decoder(transformer_output)
+        
+        # Preapre output dict
         output["mlm_output"] = mlm_output["pred"]  # (batch, seq_len)
         
         if self.decoder.explicit_zero_prob:
             output["mlm_zero_probs"] = mlm_output["zero_probs"]
 
+        if return_z:
+            output["z"] = z
+        
         return output
 
     def _get_cell_emb_from_layer(

@@ -32,12 +32,6 @@ if config.wandb:
         name = config.run_name if config.run_name else None
     )
 
-# Pre-processing
-# pad_token = "<pad>"
-# special_tokens = [pad_token, "<cls>", "<eoc>"]
-# mask_value = -1 # in the value vector corresponding to msk token (!= msk token index in vocab)
-# pad_value = -2  # in the value vector corresponding to pad token (!= pad token index in vocab)
-
 # Import data
 path_to_transcriptional_interactions = '../data/transcriptional_interactions.csv'
 dataset_name = config.dataset_name
