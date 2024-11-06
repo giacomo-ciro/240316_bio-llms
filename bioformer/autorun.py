@@ -125,7 +125,7 @@ elif config.model == "BioFormer":
 print(model)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
-model = torch.nn.DataParallel(model)
+# model = torch.nn.DataParallel(model)
 
 # Parameters count
 n_params = sum(p.numel() for p in model.parameters())
