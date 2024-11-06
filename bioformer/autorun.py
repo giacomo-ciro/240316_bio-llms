@@ -189,7 +189,6 @@ def prepare_data():
 # --------------------------------------------------------------------------- #
 
 criterion = masked_mse_loss
-criterion_dab = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(model.parameters(),
                               lr=config.lr,
                               eps=1e-4 if config.amp else 1e-8

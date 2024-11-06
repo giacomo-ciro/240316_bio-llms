@@ -1,3 +1,4 @@
 bioformer/__pycache__
 data
 wandb
+checkpoints
