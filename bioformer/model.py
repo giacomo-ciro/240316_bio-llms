@@ -396,15 +396,15 @@ class RowAttentionWithPairBias(nn.Module):
         self.linear_z = nn.Linear(self.c_z, self.no_heads, bias=False) if self.pair_bias else None
 
         # Queries, Keys, Values
-        self.linear_q = nn.Linear(self.c_in, self.c_hidden, bias=False)
-        self.linear_k = nn.Linear(self.c_in, self.c_hidden, bias=False)
-        self.linear_v = nn.Linear(self.c_in, self.c_hidden, bias=False)
+        self.linear_q = nn.Linear(self.c_in, self.c_in, bias=False)         # project to a singular vector and then reshape into multiple heads
+        self.linear_k = nn.Linear(self.c_in, self.c_in, bias=False)
+        self.linear_v = nn.Linear(self.c_in, self.c_in, bias=False)
         
         # Gating
-        self.linear_g = nn.Linear(self.c_in, self.c_hidden) if self.gating else None
+        self.linear_g = nn.Linear(self.c_in, self.c_in) if self.gating else None
         
         # Final projection
-        self.linear_o = nn.Linear(self.c_hidden, self.c_in)
+        self.linear_o = nn.Linear(self.c_in, self.c_in)
 
     def forward(self,
             m: torch.Tensor,
@@ -474,10 +474,10 @@ class RowAttentionWithPairBias(nn.Module):
             g = g.view(g.shape[:-1] + (self.no_heads, -1))
             # [B, r, H, c_hid]
             a = a * g
-
+        
         # [B, r, H * c_hid]
         a = a.reshape(a.shape[:-2] + (-1,))     # flatten H dim
-
+        
         # [B, r, c_m]
         a = self.linear_o(a)
         

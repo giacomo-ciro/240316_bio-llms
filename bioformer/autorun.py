@@ -13,7 +13,7 @@ from scipy.sparse import issparse
 from utils import set_seed, AttrDict
 from vocab import Vocab
 from preprocess import Preprocessor, get_interactions, get_z
-from tokenizer import Tokenizer, random_mask_value
+from tokenizer import Tokenizer
 from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
@@ -82,15 +82,15 @@ print(f"CLS in vocab: {vocab.stoi['<cls>']}")
 
 # Tokenize & Pad
 tokenizer = Tokenizer(vocab = vocab,
-                      append_cls = True,
-                      cls_token = "<cls>",
+                      append_cls = False,
                       pad_token = "<pad>",
                       pad_value = -2,
                       include_zero_gene= config.include_zero_gene, 
+                      mask_value = -1,
                       )
 tokenized = tokenizer.tokenize_and_pad_batch(adata.layers["X_binned"].toarray() if issparse(adata.layers["X_binned"]) else adata.layers["X_binned"],
                                              np.array(vocab(genes), dtype=int),
-                                             max_len=config.n_hvg + 1,
+                                             max_len=config.n_hvg,
                                              )
 print(f"Tot samples: {tokenized['genes'].shape[0]}")
 print(f"Input length: {tokenized['genes'].shape[1]}")
@@ -161,9 +161,13 @@ def prepare_data():
     3. Convert to torch.Dataset.
     
     """
-    masked_values = random_mask_value(tokenized["values"])
-    print(f"Random masking at epoch {epoch}...")
 
+    print(f"Random masking at epoch {epoch}...")
+    masked_values = tokenizer.random_mask_value(tokenized["values"],
+                                                mask_single_value = False,
+                                                mask_ratio = 0.15,
+                                                )
+    
     B, r = masked_values.shape
     if config.init_z:
         tf = get_interactions(genes, path_to_transcriptional_interactions)
@@ -176,6 +180,7 @@ def prepare_data():
         "interactions": interactions              # [B, r, r]
     }
 
+    print(f'Splitting data into train and valid at epoch {epoch}...')
     return SeqDataset(data_pt)
 
 # --------------------------------------------------------------------------- #

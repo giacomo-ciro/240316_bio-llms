@@ -1,17 +1,17 @@
 {
-    "run_name": "bioformer-256-8-256",
-    "dataset_name": "BREAST_25K",
+    "run_name": "bioformer-af2",
+    "dataset_name": "HYPOXIA_9K",
     "model": "BioFormer",
     
-    "d_model": 32,
+    "d_model": 256,
     "nhead": 8,
-    "nlayers": 8,
-    "n_hvg": 50,
+    "nlayers": 48,
+    "n_hvg": 256,
     
     "do_pair_bias": true,
     "do_opm": true,
-    "d_z": 32,
-    "d_opm": 8,
+    "d_z": 128,
+    "d_opm": 32,
     "init_z": false,
 
     "do_train": true,
@@ -19,7 +19,7 @@
     "batch_size": 16,
 
     "wandb": false,
-    "seed": 5289,
+    "seed": false,
     
     "n_bins": 51,
     "include_zero_gene": false,
@@ -30,6 +30,6 @@
     "amp": true,
     "schedule_ratio": 0.1,
 
-    "save_model": false
+    "save_model": true
 
 }
