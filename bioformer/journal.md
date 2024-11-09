@@ -2,7 +2,7 @@
 Some notes, thoughts and ideas stemming from my research activity at the Buffa Lab at Bocconi University.
 # TODO
 - custom mask for pad tokens
-- change scheduler (now is changing lr each epoch by gamma factor, update to change lr on plateau)
+- make c_hidden = c_in / nhead in RowAttentionWithPairBias, as of now is manually set
 
 ## MISC
 - as of now, the data is being masked and split into train and valid at each epoch!! I am testing using what I could have been training on the previous epoch!!!!! 

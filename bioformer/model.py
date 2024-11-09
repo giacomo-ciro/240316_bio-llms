@@ -42,7 +42,7 @@ class BioFormerModel(nn.Module):
         self.bioformer = BioFormerStack(
                             c_m=d_model,
                             c_z=d_z,
-                            c_hidden=d_opm,
+                            c_opm=d_opm,
                             no_heads=nhead,
                             no_blocks=nlayers,
                             do_opm=do_opm,
@@ -358,7 +358,6 @@ class RowAttentionWithPairBias(nn.Module):
     def __init__(
         self,
         c_in,
-        c_hidden,
         no_heads,
         pair_bias=True,
         c_z=None,
@@ -383,7 +382,7 @@ class RowAttentionWithPairBias(nn.Module):
         super(RowAttentionWithPairBias, self).__init__()
 
         self.c_in = c_in
-        self.c_hidden = c_hidden
+        self.c_hidden = int(c_in / no_heads)
         self.no_heads = no_heads
         self.pair_bias = pair_bias
         self.c_z = c_z
@@ -535,7 +534,7 @@ class BioFormerBlock(nn.Module):
                 self,
                 c_m,
                 c_z,
-                c_hidden,
+                c_opm,
                 no_heads,
                 do_opm,
                 do_pair_bias,
@@ -561,7 +560,6 @@ class BioFormerBlock(nn.Module):
         
         self.attn = RowAttentionWithPairBias(
                                         c_in=c_m,
-                                        c_hidden=c_hidden,
                                         no_heads=no_heads,
                                         pair_bias=self.do_pair_bias,
                                         c_z=c_z, 
@@ -574,7 +572,7 @@ class BioFormerBlock(nn.Module):
         self.opm = OuterProductMean(
                                 c_m=c_m,
                                 c_z=c_z,
-                                c_hidden=c_hidden
+                                c_hidden=c_opm
                                 ) if self.do_opm else None
 
     def forward(self,m, z):
@@ -608,7 +606,7 @@ class BioFormerStack(nn.Module):
     def __init__(self,
             c_m,
             c_z,
-            c_hidden,
+            c_opm,
             no_heads,
             no_blocks,
             do_opm,
@@ -621,7 +619,7 @@ class BioFormerStack(nn.Module):
             block = BioFormerBlock(
                                 c_m=c_m,
                                 c_z=c_z,
-                                c_hidden=c_hidden,
+                                c_opm=c_opm,
                                 no_heads=no_heads,
                                 do_opm=do_opm,
                                 do_pair_bias=do_pair_bias
