@@ -48,8 +48,6 @@ class BioFormerModel(nn.Module):
                             do_opm=do_opm,
                             do_pair_bias=do_pair_bias,
                             )
-        # encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
-        # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
         self.decoder = ExprDecoder(d_model,
                                    explicit_zero_prob = explicit_zero_prob
