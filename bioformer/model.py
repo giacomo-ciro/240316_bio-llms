@@ -37,7 +37,7 @@ class BioFormerModel(nn.Module):
                                             )
         self.emb_z = ContinuousValueEncoder(d_z,
                                             dropout
-                                            )
+                                            ) if do_opm and do_pair_bias else nn.Identity()
 
         self.bioformer = BioFormerStack(
                             c_m=d_model,
