@@ -1,15 +1,15 @@
 {
-    "run_name": "bioformer-af2",
+    "run_name": "bioformer-45M-nobias-noopm",
     "dataset_name": "HYPOXIA_9K",
     "model": "BioFormer",
     
     "d_model": 256,
     "nhead": 8,
-    "nlayers": 48,
+    "nlayers": 8,
     "n_hvg": 256,
     
-    "do_pair_bias": true,
-    "do_opm": true,
+    "do_pair_bias": false,
+    "do_opm": false,
     "d_z": 128,
     "d_opm": 32,
     "init_z": false,
@@ -18,7 +18,7 @@
     "epochs": 5,
     "batch_size": 16,
 
-    "wandb": false,
+    "wandb": true,
     "seed": false,
     
     "n_bins": 51,
@@ -30,6 +30,6 @@
     "amp": true,
     "schedule_ratio": 0.1,
 
-    "save_model": true
+    "save_model": "../checkpoints"
 
 }
