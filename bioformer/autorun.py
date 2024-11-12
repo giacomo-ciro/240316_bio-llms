@@ -364,10 +364,13 @@ for epoch in range(1, config.epochs + 1):
 
 # --------------------------------- final house-keeping --------------------------------------- #
 if config.save_model:
+    
     if config.save_model[-1] != "/":
         config.save_model += "/"
-    dir = f"{config.save_model}/{config.run_name}_{time.time():.0f}"
     
+    dir = f"{config.save_model}/{config.run_name}_{time.time():.0f}"
+    print(f"Saving model to {dir}...")
+
     # Save Model
     torch.save(best_model.state_dict(), f"{dir}.pt")
     
