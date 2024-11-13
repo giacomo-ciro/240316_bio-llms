@@ -7,6 +7,7 @@ Some notes, thoughts and ideas stemming from my research activity at the Buffa L
 - test set outside of epochs (train, val, test)
 - expand dataset (breast cell atlas and ask Federico perturb data he used for the thesis norman and adamson)
 - use omnipath references to add weights and updates on the z (later on)
+- tweak also params d_z and c_opm
 
 ## Memory Complexity Analysis
 Currenly, I am getting a `CUDA out-of-memory: trying to allocate 200GiB` when on the cluster using 2xNVIDIA A100 80GB an instance of bioformer with configuration:
