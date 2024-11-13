@@ -6,7 +6,7 @@ Some notes, thoughts and ideas stemming from my research activity at the Buffa L
 - include_zero_genes = True
 - test set outside of epochs (train, val, test)
 - expand dataset (breast cell atlas and ask Federico perturb data he used for the thesis norman and adamson)
-- use omnipath references to add weights and updates on the z (later on)
+- use omnipath references to add weights (confidence score) and updates on the z (later on)
 - tweak also params d_z and c_opm
 
 ## Memory Complexity Analysis
