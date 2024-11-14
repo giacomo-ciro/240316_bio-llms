@@ -40,8 +40,8 @@ if dataset_name == 'BREAST_25K':
     adata = sc.read_h5ad('../data/breast_25k.h5ad')
     data_is_raw = True
 
-elif dataset_name == 'BREAST_12K':
-    adata = sc.read_h5ad('../data/breast_12k.h5ad')
+elif dataset_name == 'BREAST_2M':
+    adata = sc.read_h5ad('../data/breast_2M.h5ad')
     data_is_raw = True
 
 elif dataset_name == 'DERMAL_100K':
