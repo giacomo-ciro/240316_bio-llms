@@ -46,7 +46,6 @@ elif dataset_name == 'BREAST_2M':
 
 elif dataset_name == 'BREAST_800K':
     adata = sc.read_h5ad('../data/breast_800k.h5ad')
-    adata.var["gene_name"] = adata.var.feature_name.tolist()
     data_is_raw = True
 
 elif dataset_name == 'HYPOXIA_9K':
