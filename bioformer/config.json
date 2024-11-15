@@ -1,5 +1,5 @@
 {
-    "run_name": "bioformer-6M",
+    "run_name": "bioformer-6M-atlas",
     "dataset_name": "BREAST_800K",
     "model": "BioFormer",
     
