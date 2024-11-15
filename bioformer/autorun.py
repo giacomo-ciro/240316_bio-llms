@@ -17,6 +17,9 @@ from tokenizer import Tokenizer
 from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
+# import os
+# os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 config = AttrDict(json.load(open('./config.json')))
 print(config)
 
@@ -49,7 +52,7 @@ elif dataset_name == 'BREAST_800K':
     data_is_raw = True
 
 elif dataset_name == 'HYPOXIA_9K':
-    adata = sc.read_h5ad('../data/scsHypoxiaTimeSub.h5ad')
+    adata = sc.read_h5ad('../data/scsHypoxiaTimeSub.h5ad')[:100]
     adata.X = adata.layers['raw_count']
     adata.var['gene_name'] = adata.var.index.tolist()
     data_is_raw = True
@@ -91,6 +94,7 @@ tokenized = tokenizer.tokenize_and_pad_batch(adata.layers["X_binned"].toarray() 
                                              np.array(vocab(genes), dtype=int),
                                              max_len=config.n_hvg,
                                              )
+del adata   # free up memory
 print(f"Tot samples: {tokenized['genes'].shape[0]}")
 print(f"Input length: {tokenized['genes'].shape[1]}")
 
@@ -212,6 +216,9 @@ if config.wandb:
 for epoch in range(1, config.epochs + 1):
     epoch_start_time = time.time()
     
+    if epoch > 1:
+        del dataset, train_dataset, valid_dataset, train_loader, valid_loader
+
     dataset = prepare_data()
 
     train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [0.9, 0.1])
