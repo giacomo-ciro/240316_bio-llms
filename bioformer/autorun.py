@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
 
+import gc
 import json
 import numpy as np
 import scanpy as sc
@@ -214,10 +215,19 @@ if config.wandb:
     wandb.define_metric("valid/mre", summary="min", step_metric="epoch")
 
 for epoch in range(1, config.epochs + 1):
+
+    print("-" * 89)
+    print(f"| Epoch {epoch} of {config.epochs}...")
+    print("-" * 89)
+    print(f"Allocated memory at epoch {epoch}: {torch.cuda.memory_allocated() / 1e6:,.2f} MB")
+    print(f"Cached memory at epoch {epoch}: {torch.cuda.memory_reserved() / 1e6:,.2f} MB")
+
     epoch_start_time = time.time()
     
     if epoch > 1:
         del dataset, train_dataset, valid_dataset, train_loader, valid_loader
+        gc.collect()
+        torch.cuda.empty_cache()
 
     dataset = prepare_data()
 
@@ -227,11 +237,13 @@ for epoch in range(1, config.epochs + 1):
         dataset=train_dataset,
         batch_size=config.batch_size,
         shuffle=True,
+        pin_memory=True,
     )
     valid_loader = DataLoader(
         dataset=valid_dataset,
         batch_size=config.batch_size,
         shuffle=True,
+        pin_memory=True,
     )
 
     # -------------------------------- TRAINING ----------------------------------- #
