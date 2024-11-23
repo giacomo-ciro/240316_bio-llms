@@ -138,7 +138,9 @@ model.to(device)
 # Parameters count
 n_params = sum(p.numel() for p in model.parameters())
 model_size_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
-print(f'''device: {device} | model: {config.model} | d_model: {config.d_model} | nhead: {config.nhead} | nlayers: {config.nlayers} | tot. params: {n_params/1e6:.2f}M | model size: {model_size_bytes/1e6:.2f}MB''')
+print(f"-"*89)
+print(f'''| Model: {config.model} | d_model: {config.d_model} | nhead: {config.nhead} | nlayers: {config.nlayers} | tot. params: {n_params/1e6:.2f}M | model size: {model_size_bytes/1e6:.2f}MB | device: {device}''')
+print(f"-"*89)
 if config.wandb:
     wandb.config.update({"Model Parameters": n_params})
 
