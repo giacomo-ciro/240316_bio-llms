@@ -64,7 +64,7 @@ elif dataset_name == 'HYPOXIA_9K':
     data_is_raw = True
 
 print(f"-"*89)
-print(f"| Loaded dataset: {dataset_name}")
+print(f"| Loaded dataset: {dataset_name} | Allocated RAM: {memory_usage():,.2f} MB |")
 print(f"-"*89)
 print(adata)
 
