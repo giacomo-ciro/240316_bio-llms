@@ -329,7 +329,7 @@ for epoch in range(1, config.epochs + 1):
                 total_mse = 0
                 total_mre = 0
                 start_time = time.time()
-            break
+            
     # -------------------------------- VALIDATION ----------------------------------- #
     model.eval()
     
@@ -363,7 +363,7 @@ for epoch in range(1, config.epochs + 1):
             total_loss += loss.item() * len(input_gene_ids)
             total_mre += masked_relative_error(output_values, target_values, masked_positions).item() * len(input_gene_ids)
             total_num += len(input_gene_ids)
-            break
+            
     if config.wandb:
         wandb.log({ 
             "valid/mse": total_loss / total_num,
