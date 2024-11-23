@@ -3,6 +3,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
 
+import os
+import psutil
 import gc
 import json
 import numpy as np
@@ -18,8 +20,11 @@ from tokenizer import Tokenizer
 from model import TransformerModel, BioFormerModel
 from loss import masked_mse_loss, masked_relative_error, criterion_neg_log_bernoulli
 
-# import os
+
 # os.chdir(os.path.dirname(os.path.abspath(__file__)))
+def memory_usage():
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1e6  # Memory usage in MB
 
 config = AttrDict(json.load(open('./config.json')))
 print(config)
@@ -44,8 +49,8 @@ if dataset_name == 'BREAST_25K':
     adata = sc.read_h5ad('../data/breast_25k.h5ad')
     data_is_raw = True
 
-elif dataset_name == 'BREAST_2M':
-    adata = sc.read_h5ad('../data/breast_2M.h5ad')
+elif dataset_name == 'BREAST_300K':
+    adata = sc.read_h5ad('../data/breast_300k.h5ad')
     data_is_raw = True
 
 elif dataset_name == 'BREAST_800K':
@@ -58,8 +63,11 @@ elif dataset_name == 'HYPOXIA_9K':
     adata.var['gene_name'] = adata.var.index.tolist()
     data_is_raw = True
 
-print(dataset_name)
+print(f"-"*89)
+print(f"| Loaded dataset: {dataset_name}")
+print(f"-"*89)
 print(adata)
+
 
 # Pre-process RNA-seq data
 preprocessor = Preprocessor(use_key="X",  # the key in adata.layers to use as raw data
@@ -96,6 +104,8 @@ tokenized = tokenizer.tokenize_and_pad_batch(adata.layers["X_binned"].toarray() 
                                              max_len=config.n_hvg,
                                              )
 del adata   # free up memory
+gc.collect()
+
 print(f"Tot samples: {tokenized['genes'].shape[0]}")
 print(f"Input length: {tokenized['genes'].shape[1]}")
 
@@ -172,16 +182,16 @@ def prepare_data():
                                                 mask_ratio = 0.15,
                                                 )
     
-    B, r = masked_values.shape
-    if config.init_z:
-        tf = get_interactions(genes, path_to_transcriptional_interactions)
-    interactions = get_z(tokenized["genes"], tf, vocab.itos) if config.init_z else torch.zeros((B, r, r))    # [B, r, r]
+    # B, r = masked_values.shape
+    # if config.init_z:
+    #     tf = get_interactions(genes, path_to_transcriptional_interactions)
+    # interactions = get_z(tokenized["genes"], tf, vocab.itos) if config.init_z else torch.zeros((B, r, r))    # [B, r, r]
 
     data_pt = {
         "gene_ids": tokenized["genes"],           # [B, r]
         "values": masked_values,                  # [B, r]
         "target_values": tokenized["values"],     # [B, r]
-        "interactions": interactions              # [B, r, r]
+        # "interactions": interactions              # [B, r, r]
     }
 
     print(f'Splitting data into train and valid at epoch {epoch}...')
@@ -217,10 +227,8 @@ if config.wandb:
 for epoch in range(1, config.epochs + 1):
 
     print("-" * 89)
-    print(f"| Epoch {epoch} of {config.epochs}...")
+    print(f"| Epoch {epoch} of {config.epochs} | Allocated RAM: {memory_usage():,.2f} MB | Allocated VRAM: {torch.cuda.memory_allocated() / 1e6:,.2f} MB | Cached VRAM: {torch.cuda.memory_reserved() / 1e6:,.2f} MB")
     print("-" * 89)
-    print(f"Allocated memory at epoch {epoch}: {torch.cuda.memory_allocated() / 1e6:,.2f} MB")
-    print(f"Cached memory at epoch {epoch}: {torch.cuda.memory_reserved() / 1e6:,.2f} MB")
 
     epoch_start_time = time.time()
     
@@ -266,7 +274,9 @@ for epoch in range(1, config.epochs + 1):
             target_values = batch_data["target_values"].to(device)
             
             if config.model == "BioFormer":
-                z = batch_data['interactions'].to(device)
+                B, r = input_values.shape
+                z = torch.zeros((B, r, r), device=device)    # [B, r, r]
+
 
             # ---------- forward -------------------
             with torch.cuda.amp.autocast(enabled=config.amp):
@@ -278,7 +288,7 @@ for epoch in range(1, config.epochs + 1):
                 
                 masked_positions = input_values.eq(-1)          # default value for the mask position
                 loss = loss_mse = criterion(output_dict["mlm_output"], target_values, masked_positions)
-                
+
                 metrics_to_log = {"train/mse": loss_mse.item()}
                 
                 if config.explicit_zero_prob:
@@ -293,7 +303,7 @@ for epoch in range(1, config.epochs + 1):
             scaler.unscale_(optimizer)
             scaler.step(optimizer)
             scaler.update()
-            
+
             # --------------- logs & stats ---------------------
             if config.wandb:
                 wandb.log(metrics_to_log)
@@ -319,7 +329,7 @@ for epoch in range(1, config.epochs + 1):
                 total_mse = 0
                 total_mre = 0
                 start_time = time.time()
-
+            break
     # -------------------------------- VALIDATION ----------------------------------- #
     model.eval()
     
@@ -335,14 +345,15 @@ for epoch in range(1, config.epochs + 1):
             target_values = batch_data["target_values"].to(device)
 
             if config.model == "BioFormer":
-                interactions = batch_data['interactions'].to(device)
+                B, r = input_values.shape
+                z = torch.zeros((B, r, r), device=device)    # [B, r, r]
 
             with torch.cuda.amp.autocast(enabled=config.amp):
                 
                 if config.model == "scGPT":
                     output_dict = model(input_gene_ids, input_values)
                 elif config.model == "BioFormer":
-                    output_dict = model(input_gene_ids, input_values, interactions)
+                    output_dict = model(input_gene_ids, input_values, z)
                 
                 output_values = output_dict["mlm_output"]
 
@@ -352,7 +363,7 @@ for epoch in range(1, config.epochs + 1):
             total_loss += loss.item() * len(input_gene_ids)
             total_mre += masked_relative_error(output_values, target_values, masked_positions).item() * len(input_gene_ids)
             total_num += len(input_gene_ids)
-
+            break
     if config.wandb:
         wandb.log({ 
             "valid/mse": total_loss / total_num,

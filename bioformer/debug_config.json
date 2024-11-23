@@ -1,0 +1,35 @@
+{
+    "run_name": "bioformer-6M-atlas",
+    "dataset_name": "BREAST_300K",
+    "model": "BioFormer",
+    
+    "d_model": 8,
+    "nhead": 8,
+    "nlayers": 8,
+    "n_hvg": 50,
+    
+    "do_pair_bias": true,
+    "do_opm": true,
+    "d_z": 128,
+    "d_opm": 32,
+    "init_z": false,
+
+    "do_train": true,
+    "epochs": 15,
+    "batch_size": 16,
+
+    "wandb": false,
+    "seed": false,
+    
+    "n_bins": 51,
+    "include_zero_gene": false,
+    "explicit_zero_prob": true,
+
+    "log_interval": 100,
+    "lr": 0.0001,
+    "amp": true,
+    "schedule_ratio": 0.1,
+
+    "save_model": "../checkpoints"
+
+}
