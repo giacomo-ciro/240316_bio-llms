@@ -6,6 +6,9 @@ We developed a novel architecture dubbed BioFormer, which combines the encodings
 BioFormer can reason on both sequence-based and pair representations of RNA expression values, effectively capturing gene interactions. Moreover, initializing the pair representation with known regulatory interactions allows us to inject prior knowledge into the model.  
 
 ![bioformer_diagram.png](./assets/bioformer_diagram.png)
+## To-do
+- add Transition also on lower path
+- add pair-wise specific modules (e.g. triangular self-attention)
 
 ## References
 - [scGPT: toward building a foundation model for single-cell multi-omics using generative AI](https://www.nature.com/articles/s41592-024-02201-0)
