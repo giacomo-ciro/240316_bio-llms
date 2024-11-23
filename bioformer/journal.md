@@ -19,6 +19,10 @@ Currenly, I am getting a `CUDA out-of-memory: trying to allocate 200GiB` when on
 
 What is taking so much space?? Outer Product Mean and Attention!
 
+## Code improvements
+- added allocated memory tracking
+- modified prepare_data() to avoid memory leaks: a new interaction was being created and pointed to by data_pt dict, at each epoch within the function hence never garbage collected and memory kept filling up. Now I directly create z inside the training loop
+
 ### Outer Prouct Mean (np.einsum)
 The outer product computation and in particular when it's parallelized using `np.einsum`! Because I am storing $B$ matrices of shape $(r, r)$ whose entries are all $(c, c)$ matrices themselves. Huge matrices of huge matrices are very heavy to store in memory.   
 The outuput of this command has shape `[B, r, r, c, c]`. Assuming each element is `float32` and thus takes 4 bytes (since I am using `automatic mixed precision` this is actually an upper bound), this requires:
